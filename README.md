@@ -27,3 +27,13 @@ FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 - trip_id string formatında: "101-0-127-06:00:00-1026"
 - tenant_id: "burulas"
 - snapshot_id: 1 (aktif)
+
+## Veri Yapısı (burulas_2026-april.zip)
+- agency: 1 kayıt
+- routes: 436 hat
+- trips: 32.384 sefer  
+- stops: 9.235 durak (stop_id string: "D13-136-S")
+- stop_times: 1.420.857 kayıt
+- calendar: 37 servis
+- shapes: 386.410 nokta
+- trip_id format: "101-0-127-06:00:00-1026"
