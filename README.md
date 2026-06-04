@@ -25,10 +25,20 @@ FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 - `GET /stops/{stop_id}/arrivals?from_time=&to_time=&route_id=&limit=&tenant_id=burulas`
   - Durağa varış saatleri, hat/zaman filtreli
 
-## Sıradaki Adım — Test & Performans
-- Burulas verisiyle smoke test (`/routes/101/stops`, `/stops/D13-136-S/arrivals`)
-- Yavaş sorgular için ek index (örn: `stop_times(snapshot_id, stop_id, arrival_time)`)
-- Pydantic response modelleri ile şema sertleştirme
+### Adım 4 — Takvim Farkındalığı (date filtresi) ✅
+- `calendars` tablosu artık sorgularda kullanılıyor
+- `/routes/{route_id}/trips?date=YYYY-MM-DD` — o gün çalışan seferler
+- `/stops/{stop_id}/arrivals?date=YYYY-MM-DD` — o güne ait varışlar
+- **Yeni:** `GET /stops/{stop_id}/next?count=10&route_id=` — şu andan (Europe/Istanbul)
+  itibaren bir sonraki N varış. "Bir sonraki otobüs ne zaman?" sorusunun cevabı.
+- `_active_service_ids()` helper'ı: tarih → haftanın günü → çalışan service_id'ler
+- Şimdilik `calendar_dates.txt` (istisna günler) desteklenmiyor — ileride eklenecek
+
+## Sıradaki Adım — Konum & Arama
+- `GET /stops/nearby?lat=&lon=&radius_m=` (Haversine ile mesafe)
+- `GET /routes/search?q=` ve `GET /stops/search?q=`
+- `GET /trips/{trip_id}` (tek seferin tam detayı)
+- (İleride) Performans: `stop_times(snapshot_id, stop_id, arrival_time)` composite index
 
 ## Teknik Notlar
 - Python 3.14 — psycopg[binary]==3.3.4 kullanılıyor (psycopg2 desteklemiyor)

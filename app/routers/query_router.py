@@ -9,9 +9,13 @@ import'lar DB'de durur ama sorgular hep güncel veriden döner.
 
 Endpoint'ler:
   GET /routes/{route_id}/stops      → hattın sıralı durakları
-  GET /routes/{route_id}/trips      → hattın seferleri
-  GET /stops/{stop_id}/arrivals     → durağa varış saatleri
+  GET /routes/{route_id}/trips      → hattın seferleri (date filtresi opsiyonel)
+  GET /stops/{stop_id}/arrivals     → durağa varış saatleri (date filtresi opsiyonel)
+  GET /stops/{stop_id}/next         → şu andan sonraki ilk N varış (kısa yol)
 """
+
+from datetime import date as date_cls, datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -19,10 +23,20 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.gtfs import (
-    GtfsSnapshot, Route, Stop, Trip, StopTime
+    Calendar, GtfsSnapshot, Route, Stop, Trip, StopTime
 )
 
 router = APIRouter(tags=["Query"])
+
+# GTFS calendars.txt → weekday kolon sırası (Pazartesi=0 ile uyumlu)
+# datetime.weekday() Pazartesi=0, Pazar=6 döner.
+_WEEKDAY_COLUMNS = [
+    "monday", "tuesday", "wednesday",
+    "thursday", "friday", "saturday", "sunday",
+]
+
+# Burulas saat dilimi. İleride agency_timezone'dan dinamik okuyabiliriz.
+_LOCAL_TZ = ZoneInfo("Europe/Istanbul")
 
 
 # ─────────────────────────────────────────
@@ -46,6 +60,58 @@ def _get_active_snapshot(db: Session, tenant_id: str) -> GtfsSnapshot:
             detail=f"'{tenant_id}' için aktif snapshot bulunamadı",
         )
     return snap
+
+
+# ─────────────────────────────────────────
+# YARDIMCI — bir tarihte çalışan service_id'leri bul
+# ─────────────────────────────────────────
+def _parse_date(s: str) -> date_cls:
+    """
+    'YYYY-MM-DD' → date.
+    Geçersizse 400 atar.
+    """
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(
+            400, f"Geçersiz tarih formatı: '{s}'. Beklenen format: YYYY-MM-DD"
+        )
+
+
+def _active_service_ids(
+    db: Session, snapshot_id: int, target_date: date_cls
+) -> list[str]:
+    """
+    Belirtilen tarihte aktif olan service_id listesini döndürür.
+
+    GTFS calendars.txt mantığı:
+      - Bir servis 'start_date'..'end_date' aralığında geçerlidir
+      - O tarihin haftanın günü kolonu (örn: monday) 1 olmalı
+      - GTFS calendar_dates.txt ile istisnalar tanımlanabilir
+        (özel günler, iptal günleri) — şimdilik desteklemiyoruz,
+        ileride eklenebilir.
+
+    Tarihler DB'de 'YYYYMMDD' formatında (Burulas verisi öyle gönderiyor).
+    Bu format string olarak da doğru sıralanır (lexicographic ordering).
+    """
+    weekday_col_name = _WEEKDAY_COLUMNS[target_date.weekday()]
+    weekday_col = getattr(Calendar, weekday_col_name)
+    date_str = target_date.strftime("%Y%m%d")  # "20260604"
+
+    rows = (
+        db.query(Calendar.service_id)
+        .filter(Calendar.snapshot_id == snapshot_id)
+        .filter(weekday_col == 1)
+        .filter(Calendar.start_date <= date_str)
+        .filter(Calendar.end_date >= date_str)
+        .all()
+    )
+    return [r[0] for r in rows]
+
+
+def _now_local() -> datetime:
+    """Yerel saat (Europe/Istanbul). Test edilebilirlik için ayrı fonksiyon."""
+    return datetime.now(_LOCAL_TZ)
 
 
 # ─────────────────────────────────────────
@@ -151,6 +217,10 @@ def get_route_trips(
     route_id: str,
     direction_id: int | None = Query(None, description="0=gidiş, 1=dönüş"),
     service_id: str | None = Query(None, description="Belirli bir servis (gün) için filtre"),
+    date: str | None = Query(
+        None,
+        description="YYYY-MM-DD. Verilirse o tarihte çalışan seferler döner.",
+    ),
     limit: int = Query(200, ge=1, le=2000),
     tenant_id: str = Query("burulas"),
     db: Session = Depends(get_db),
@@ -160,8 +230,30 @@ def get_route_trips(
 
     Her trip için ilk durağın kalkış saatini (start_time) ekliyoruz,
     çünkü saat sırasına göre göstermek istiyoruz.
+
+    date verilirse: o tarihin haftanın gününe göre çalışan service_id'ler
+    bulunur ve sefer listesi onlara filtrelenir. service_id ile birlikte
+    verilebilir — ikisi de uygulanır (AND).
     """
     snap = _get_active_snapshot(db, tenant_id)
+
+    # date verildiyse o gün çalışan service_id'leri çek
+    active_services: list[str] | None = None
+    if date is not None:
+        target = _parse_date(date)
+        active_services = _active_service_ids(db, snap.id, target)
+        if not active_services:
+            # O gün hiç servis yok → boş cevap, sorgu yapmaya gerek yok
+            return {
+                "tenant_id": tenant_id,
+                "snapshot_id": snap.id,
+                "route_id": route_id,
+                "direction_id": direction_id,
+                "service_id": service_id,
+                "date": date,
+                "trip_count": 0,
+                "trips": [],
+            }
 
     # İlk durağın departure_time'ı = sefer başlangıç saati
     # stop_sequence en küçük olan stop_time
@@ -200,6 +292,8 @@ def get_route_trips(
         q = q.filter(Trip.direction_id == direction_id)
     if service_id is not None:
         q = q.filter(Trip.service_id == service_id)
+    if active_services is not None:
+        q = q.filter(Trip.service_id.in_(active_services))
 
     rows = q.order_by(StopTime.departure_time.asc()).limit(limit).all()
 
@@ -209,6 +303,7 @@ def get_route_trips(
         "route_id": route_id,
         "direction_id": direction_id,
         "service_id": service_id,
+        "date": date,
         "trip_count": len(rows),
         "trips": [
             {
@@ -236,6 +331,10 @@ def get_stop_arrivals(
     to_time: str | None = Query(
         None, description="HH:MM:SS — bu saate kadar (dahil)"
     ),
+    date: str | None = Query(
+        None,
+        description="YYYY-MM-DD. Verilirse sadece o gün çalışan seferler döner.",
+    ),
     route_id: str | None = Query(None, description="Belirli hat için filtre"),
     limit: int = Query(100, ge=1, le=1000),
     tenant_id: str = Query("burulas"),
@@ -246,8 +345,45 @@ def get_stop_arrivals(
 
     Her satır = bir sefer × bu durak.
     Saat aralığı verilirse o aralıkta filtrelenir.
+
+    date verilirse: o tarihin haftanın gününe uyan service_id'ler bulunur
+    ve sadece o servislere ait varışlar döner. Pazartesi/Pazar farkını
+    böyle ayırırız.
     """
     snap = _get_active_snapshot(db, tenant_id)
+
+    # date verildiyse o gün çalışan service_id'leri çek
+    active_services: list[str] | None = None
+    if date is not None:
+        target = _parse_date(date)
+        active_services = _active_service_ids(db, snap.id, target)
+        if not active_services:
+            # O gün hiç servis yok → boş cevap
+            stop_empty = (
+                db.query(Stop)
+                .filter(Stop.snapshot_id == snap.id)
+                .filter(Stop.stop_id == stop_id)
+                .first()
+            )
+            if not stop_empty:
+                raise HTTPException(404, f"stop_id={stop_id} bulunamadı")
+            return {
+                "tenant_id": tenant_id,
+                "snapshot_id": snap.id,
+                "stop_id": stop_id,
+                "stop_name": stop_empty.stop_name,
+                "stop_lat": stop_empty.stop_lat,
+                "stop_lon": stop_empty.stop_lon,
+                "filters": {
+                    "from_time": from_time,
+                    "to_time": to_time,
+                    "date": date,
+                    "route_id": route_id,
+                    "limit": limit,
+                },
+                "arrival_count": 0,
+                "arrivals": [],
+            }
 
     # Durağın varlığını ve adını al
     stop = (
@@ -286,6 +422,8 @@ def get_stop_arrivals(
         q = q.filter(StopTime.arrival_time <= to_time)
     if route_id is not None:
         q = q.filter(Trip.route_id == route_id)
+    if active_services is not None:
+        q = q.filter(Trip.service_id.in_(active_services))
 
     rows = q.order_by(StopTime.arrival_time.asc()).limit(limit).all()
 
@@ -299,9 +437,121 @@ def get_stop_arrivals(
         "filters": {
             "from_time": from_time,
             "to_time": to_time,
+            "date": date,
             "route_id": route_id,
             "limit": limit,
         },
+        "arrival_count": len(rows),
+        "arrivals": [
+            {
+                "arrival_time": r.arrival_time,
+                "departure_time": r.departure_time,
+                "trip_id": r.trip_id,
+                "route_id": r.route_id,
+                "direction_id": r.direction_id,
+                "trip_headsign": r.trip_headsign,
+                "service_id": r.service_id,
+                "stop_sequence": r.stop_sequence,
+            }
+            for r in rows
+        ],
+    }
+
+
+# ─────────────────────────────────────────
+# GET /stops/{stop_id}/next
+# Pratik kısa yol: "şu andan itibaren ilk N varış, bugün"
+# ─────────────────────────────────────────
+@router.get("/stops/{stop_id}/next")
+def get_stop_next_arrivals(
+    stop_id: str,
+    count: int = Query(10, ge=1, le=50, description="Kaç tane sonraki varış"),
+    route_id: str | None = Query(None, description="Belirli hat için filtre"),
+    tenant_id: str = Query("burulas"),
+    db: Session = Depends(get_db),
+):
+    """
+    Şu andan (Europe/Istanbul) itibaren bu durağa gelecek ilk N varış.
+
+    'Bir sonraki otobüs ne zaman?' sorusunun cevabı.
+
+    Mantık:
+      1. Yerel saati al → tarih + saat
+      2. O tarihte çalışan service_id'leri bul (calendars)
+      3. stop_times'ı: snapshot + stop + service + arrival_time >= now ile filtrele
+      4. arrival_time'a göre sırala, count kadar al
+
+    Not: GTFS arrival_time 24:00:00'ı geçebilir ("25:30:00" = ertesi gün 01:30).
+    Şu an gece 01:00 olduğunda dünün servisinden gelen "25:00:00" varışları
+    da görmek isteyebiliriz — şimdilik bu uç durumu atlıyoruz, basit tutuyoruz.
+    """
+    snap = _get_active_snapshot(db, tenant_id)
+
+    # Durağı al
+    stop = (
+        db.query(Stop)
+        .filter(Stop.snapshot_id == snap.id)
+        .filter(Stop.stop_id == stop_id)
+        .first()
+    )
+    if not stop:
+        raise HTTPException(404, f"stop_id={stop_id} bulunamadı")
+
+    now = _now_local()
+    today = now.date()
+    now_hhmmss = now.strftime("%H:%M:%S")
+
+    active_services = _active_service_ids(db, snap.id, today)
+    if not active_services:
+        return {
+            "tenant_id": tenant_id,
+            "snapshot_id": snap.id,
+            "stop_id": stop_id,
+            "stop_name": stop.stop_name,
+            "now_local": now.isoformat(),
+            "date": today.isoformat(),
+            "arrival_count": 0,
+            "arrivals": [],
+            "note": "Bugün için aktif servis bulunamadı (tarih takvim dışı olabilir).",
+        }
+
+    q = (
+        db.query(
+            StopTime.arrival_time,
+            StopTime.departure_time,
+            StopTime.stop_sequence,
+            Trip.trip_id,
+            Trip.route_id,
+            Trip.direction_id,
+            Trip.trip_headsign,
+            Trip.service_id,
+        )
+        .join(
+            Trip,
+            (Trip.trip_id == StopTime.trip_id)
+            & (Trip.snapshot_id == StopTime.snapshot_id),
+        )
+        .filter(StopTime.snapshot_id == snap.id)
+        .filter(StopTime.stop_id == stop_id)
+        .filter(Trip.service_id.in_(active_services))
+        .filter(StopTime.arrival_time >= now_hhmmss)
+    )
+    if route_id is not None:
+        q = q.filter(Trip.route_id == route_id)
+
+    rows = q.order_by(StopTime.arrival_time.asc()).limit(count).all()
+
+    return {
+        "tenant_id": tenant_id,
+        "snapshot_id": snap.id,
+        "stop_id": stop_id,
+        "stop_name": stop.stop_name,
+        "stop_lat": stop.stop_lat,
+        "stop_lon": stop.stop_lon,
+        "now_local": now.isoformat(),
+        "date": today.isoformat(),
+        "weekday": _WEEKDAY_COLUMNS[today.weekday()],
+        "active_service_count": len(active_services),
         "arrival_count": len(rows),
         "arrivals": [
             {
