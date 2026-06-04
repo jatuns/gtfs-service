@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: gtfs_postgres
+    environment:
+      POSTGRES_USER: gtfs_user
+      POSTGRES_PASSWORD: gtfs_pass
+      POSTGRES_DB: gtfs_db
+    ports:
+      - "5433:5432"       # localhost:5432 → container:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # Veri silinmesin diye kalıcı volume
+
+  api:
+    build: .
+    container_name: gtfs_api
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://gtfs_user:gtfs_pass@db:5432/gtfs_db
+    volumes:
+      - ./app:/app/app   # Kod değişince container'ı yeniden build etme
+
+volumes:
+  pgdata:
