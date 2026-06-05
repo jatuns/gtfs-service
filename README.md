@@ -34,9 +34,15 @@ FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 - `_active_service_ids()` helper'ı: tarih → haftanın günü → çalışan service_id'ler
 - Şimdilik `calendar_dates.txt` (istisna günler) desteklenmiyor — ileride eklenecek
 
-## Sıradaki Adım — Konum & Arama
-- `GET /stops/nearby?lat=&lon=&radius_m=` (Haversine ile mesafe)
-- `GET /routes/search?q=` ve `GET /stops/search?q=`
+### Adım 5 — Konum Sorgusu ✅
+- `GET /stops/nearby?lat=&lon=&radius_m=&limit=` — yakındaki duraklar
+- Haversine formülü SQL içinde (subquery + ORDER BY distance_m)
+- `radius_m` 1..10.000 m, `limit` 1..200
+- Cevapta her durak için `distance_m` (metre, 0.1 hassasiyet)
+- (İleride) PostGIS + ST_DWithin + GiST index ile hızlandırılabilir
+
+## Sıradaki Adım — Arama & Detay
+- `GET /routes/search?q=` ve `GET /stops/search?q=` (ILIKE araması)
 - `GET /trips/{trip_id}` (tek seferin tam detayı)
 - (İleride) Performans: `stop_times(snapshot_id, stop_id, arrival_time)` composite index
 

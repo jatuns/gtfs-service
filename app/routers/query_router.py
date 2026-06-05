@@ -12,13 +12,14 @@ Endpoint'ler:
   GET /routes/{route_id}/trips      → hattın seferleri (date filtresi opsiyonel)
   GET /stops/{stop_id}/arrivals     → durağa varış saatleri (date filtresi opsiyonel)
   GET /stops/{stop_id}/next         → şu andan sonraki ilk N varış (kısa yol)
+  GET /stops/nearby                 → koordinata yakın duraklar (Haversine)
 """
 
 from datetime import date as date_cls, datetime
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, literal
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -563,6 +564,115 @@ def get_stop_next_arrivals(
                 "trip_headsign": r.trip_headsign,
                 "service_id": r.service_id,
                 "stop_sequence": r.stop_sequence,
+            }
+            for r in rows
+        ],
+    }
+
+
+# ─────────────────────────────────────────
+# GET /stops/nearby
+# Bir noktaya yakın durakları, mesafeyle birlikte döner.
+# ─────────────────────────────────────────
+@router.get("/stops/nearby")
+def get_stops_nearby(
+    lat: float = Query(..., ge=-90, le=90, description="Enlem (derece)"),
+    lon: float = Query(..., ge=-180, le=180, description="Boylam (derece)"),
+    radius_m: int = Query(
+        500, ge=1, le=10_000,
+        description="Arama yarıçapı (metre). Maks 10 km.",
+    ),
+    limit: int = Query(20, ge=1, le=200),
+    tenant_id: str = Query("burulas"),
+    db: Session = Depends(get_db),
+):
+    """
+    Verilen (lat, lon) noktasına `radius_m` metreden yakın durakları,
+    en yakından uzağa sıralı olarak döndürür.
+
+    Mesafe Haversine formülü ile hesaplanır (Dünya = yaklaşık küre).
+    Hesabı Python'da değil DB'de yapıyoruz: PostgreSQL satır taraması
+    sırasında mesafeyi zaten hesaplıyor, bir kez ek matematikle filtreyi
+    de aynı pass'te bitiriyor — 9k duraklık aktif snapshot için anlık.
+
+    Formül (R = Dünya yarıçapı, metre):
+        a = sin²(Δφ/2) + cos(φ1) · cos(φ2) · sin²(Δλ/2)
+        d = 2 · R · asin(√a)
+
+    SQLAlchemy notu: hesaplanan distance_m'i hem ORDER BY hem WHERE'de
+    kullanmak için iki yol var:
+      1) Aynı uzun ifadeyi iki yere de yazmak (DRY ihlali)
+      2) Subquery ile sarmak (önce hesapla, sonra dışta filtrele/sırala)
+    İkincisini seçtik — okuması da PostgreSQL'in optimize etmesi de daha kolay.
+
+    İleride performans: PostGIS + ST_DWithin/GiST index çok daha hızlı
+    olur. 9k satır için şu an gereksiz.
+    """
+    snap = _get_active_snapshot(db, tenant_id)
+
+    R = 6_371_000  # Dünya yarıçapı, metre
+
+    # Sorgu noktası — float değerleri SQL ifadesine sabit olarak gömüyoruz
+    lat_rad = func.radians(literal(lat))
+    lon_rad = func.radians(literal(lon))
+
+    # Durak koordinatları (her satır için)
+    stop_lat_rad = func.radians(Stop.stop_lat)
+    stop_lon_rad = func.radians(Stop.stop_lon)
+
+    dlat = stop_lat_rad - lat_rad
+    dlon = stop_lon_rad - lon_rad
+
+    a = (
+        func.sin(dlat / 2) * func.sin(dlat / 2)
+        + func.cos(lat_rad)
+        * func.cos(stop_lat_rad)
+        * func.sin(dlon / 2)
+        * func.sin(dlon / 2)
+    )
+    distance_m_expr = 2 * R * func.asin(func.sqrt(a))
+
+    # 1. İç sorgu: snapshot ve koordinat NULL filtresi + distance_m sütunu
+    inner = (
+        db.query(
+            Stop.stop_id.label("stop_id"),
+            Stop.stop_name.label("stop_name"),
+            Stop.stop_lat.label("stop_lat"),
+            Stop.stop_lon.label("stop_lon"),
+            distance_m_expr.label("distance_m"),
+        )
+        .filter(Stop.snapshot_id == snap.id)
+        .filter(Stop.stop_lat.isnot(None))
+        .filter(Stop.stop_lon.isnot(None))
+        .subquery()
+    )
+
+    # 2. Dış sorgu: yarıçap filtresi + sıralama + limit
+    rows = (
+        db.query(inner)
+        .filter(inner.c.distance_m <= radius_m)
+        .order_by(inner.c.distance_m.asc())
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "tenant_id": tenant_id,
+        "snapshot_id": snap.id,
+        "query": {
+            "lat": lat,
+            "lon": lon,
+            "radius_m": radius_m,
+            "limit": limit,
+        },
+        "stop_count": len(rows),
+        "stops": [
+            {
+                "stop_id": r.stop_id,
+                "stop_name": r.stop_name,
+                "stop_lat": r.stop_lat,
+                "stop_lon": r.stop_lon,
+                "distance_m": round(float(r.distance_m), 1),
             }
             for r in rows
         ],
