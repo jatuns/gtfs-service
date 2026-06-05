@@ -81,10 +81,19 @@ FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 - Kontroller: 200/404/422 kodları, sıralama, yarıçap/saat aralığı doğrulama,
   yetim durakların boş cevabı, türetilen alanların tutarlılığı
 
-## Sıradaki Adım — Şema & Veri Sertleştirme
-- Pydantic response modelleri (Swagger zenginleşir + tip güvenliği)
+### Adım 9 — Pydantic Response Modelleri ✅
+- `app/schemas/query.py` → 8 endpoint için tipli response sınıfları
+- Ortak nested tipler tek yerden: `StopBrief`, `RouteBrief`, `ArrivalEntry`,
+  `TripBrief`, `RouteStopEntry`, `TripStopEntry`, `StopWithDistance`, ...
+- Her endpoint dekoratöründe `response_model=...` → FastAPI otomatik
+  serileştirip doğruluyor
+- Swagger UI'da artık her endpoint için tam JSON şeması + alan açıklamaları
+- Hâlâ 35/35 test yeşil — cevap formatı değişmedi
+
+## Sıradaki Adım — Veri Doğruluğu
 - `calendar_dates.txt` desteği (bayram günü gibi istisnalar)
 - (Opsiyonel) pg_trgm GIN index ile arama daha hızlı
+- (Opsiyonel) Frontend mini demo (Leaflet ile harita)
 
 ## Teknik Notlar
 - Python 3.14 — psycopg[binary]==3.3.4 kullanılıyor (psycopg2 desteklemiyor)

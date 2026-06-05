@@ -29,6 +29,16 @@ from app.database import get_db
 from app.models.gtfs import (
     Calendar, GtfsSnapshot, Route, Stop, Trip, StopTime
 )
+from app.schemas.query import (
+    RouteSearchResponse,
+    RouteStopsResponse,
+    RouteTripsResponse,
+    StopArrivalsResponse,
+    StopNextResponse,
+    StopSearchResponse,
+    StopsNearbyResponse,
+    TripDetailResponse,
+)
 
 router = APIRouter(tags=["Query"])
 
@@ -121,7 +131,7 @@ def _now_local() -> datetime:
 # ─────────────────────────────────────────
 # GET /routes/{route_id}/stops
 # ─────────────────────────────────────────
-@router.get("/routes/{route_id}/stops")
+@router.get("/routes/{route_id}/stops", response_model=RouteStopsResponse)
 def get_route_stops(
     route_id: str,
     direction_id: int | None = Query(
@@ -216,7 +226,7 @@ def get_route_stops(
 # ─────────────────────────────────────────
 # GET /routes/{route_id}/trips
 # ─────────────────────────────────────────
-@router.get("/routes/{route_id}/trips")
+@router.get("/routes/{route_id}/trips", response_model=RouteTripsResponse)
 def get_route_trips(
     route_id: str,
     direction_id: int | None = Query(None, description="0=gidiş, 1=dönüş"),
@@ -326,7 +336,7 @@ def get_route_trips(
 # ─────────────────────────────────────────
 # GET /stops/{stop_id}/arrivals
 # ─────────────────────────────────────────
-@router.get("/stops/{stop_id}/arrivals")
+@router.get("/stops/{stop_id}/arrivals", response_model=StopArrivalsResponse)
 def get_stop_arrivals(
     stop_id: str,
     from_time: str | None = Query(
@@ -466,7 +476,7 @@ def get_stop_arrivals(
 # GET /stops/{stop_id}/next
 # Pratik kısa yol: "şu andan itibaren ilk N varış, bugün"
 # ─────────────────────────────────────────
-@router.get("/stops/{stop_id}/next")
+@router.get("/stops/{stop_id}/next", response_model=StopNextResponse)
 def get_stop_next_arrivals(
     stop_id: str,
     count: int = Query(10, ge=1, le=50, description="Kaç tane sonraki varış"),
@@ -577,7 +587,7 @@ def get_stop_next_arrivals(
 # GET /stops/nearby
 # Bir noktaya yakın durakları, mesafeyle birlikte döner.
 # ─────────────────────────────────────────
-@router.get("/stops/nearby")
+@router.get("/stops/nearby", response_model=StopsNearbyResponse)
 def get_stops_nearby(
     lat: float = Query(..., ge=-90, le=90, description="Enlem (derece)"),
     lon: float = Query(..., ge=-180, le=180, description="Boylam (derece)"),
@@ -686,7 +696,7 @@ def get_stops_nearby(
 # GET /routes/search
 # Hat adı / numarası ile arama (ILIKE %q%).
 # ─────────────────────────────────────────
-@router.get("/routes/search")
+@router.get("/routes/search", response_model=RouteSearchResponse)
 def search_routes(
     q: str = Query(..., min_length=1, max_length=64, description="Arama metni"),
     limit: int = Query(20, ge=1, le=100),
@@ -751,7 +761,7 @@ def search_routes(
 # GET /stops/search
 # Durak adı ile arama.
 # ─────────────────────────────────────────
-@router.get("/stops/search")
+@router.get("/stops/search", response_model=StopSearchResponse)
 def search_stops(
     q: str = Query(..., min_length=1, max_length=64, description="Arama metni"),
     limit: int = Query(20, ge=1, le=100),
@@ -809,7 +819,7 @@ def search_stops(
 # GET /trips/{trip_id}
 # Tek seferin tam detayı: trip + route + sıralı duraklar + saatler
 # ─────────────────────────────────────────
-@router.get("/trips/{trip_id}")
+@router.get("/trips/{trip_id}", response_model=TripDetailResponse)
 def get_trip_detail(
     trip_id: str,
     tenant_id: str = Query("burulas"),
