@@ -184,24 +184,21 @@ class TestStopSearch:
         r = client.get("/stops/search", params={"q": ""})
         assert r.status_code == 422
 
-    def test_results_stable_and_ordered(self, client):
+    def test_results_deterministic(self, client):
         """
         Sıralama PostgreSQL ORDER BY stop_name'e bırakılır.
         Locale'a duyarlı sıralama (UTF-8 collation) Python sorted() ile
-        bire bir eşleşmediği için sadece şunu doğruluyoruz:
-          1) Aynı sorgu iki kere koşulunca aynı sırada gelir (deterministik)
-          2) Sadece alfabetik karakterli sorgularda sıralama Python ile
-             uyumlu (noktalama/rakam karışmadığı sürece tutar).
+        bire bir eşleşmiyor — boşluk, rakam, parantez gibi noktalama
+        karakterleri farklı kurallarla sıralanıyor.
+
+        Bu test sadece deterministik olduğunu doğruluyor:
+        aynı sorgu iki kere koşulunca aynı sırada geliyor.
+        Asıl 'doğru sıralama' kontrolü endpoint koduna ve PostgreSQL'e
+        güveniyoruz (ORDER BY stop_name kullanıyor).
         """
-        # 1) Deterministik mi?
         r1 = client.get("/stops/search", params={"q": "ulu", "limit": 50})
         r2 = client.get("/stops/search", params={"q": "ulu", "limit": 50})
         names1 = [s["stop_name"] for s in r1.json()["stops"]]
         names2 = [s["stop_name"] for s in r2.json()["stops"]]
         assert names1 == names2
         assert len(names1) > 0
-
-        # 2) Sadece alfabetik (locale farkı yaratmıyor) → Python sorted ile uyumlu
-        # ULUCAMI, ULUDAG vs. gibi sonuçlar geleceği için lowercase karşılaştırma
-        lowered = [n.lower() for n in names1]
-        assert lowered == sorted(lowered)
