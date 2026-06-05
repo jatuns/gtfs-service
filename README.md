@@ -64,10 +64,27 @@ FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
   ```
 - Modele de eklendi (`Index(...)` __table_args__'a) — yeni tenant'larda otomatik
 
-## Sıradaki Adım — Sertleştirme
-- Pytest ile smoke testler (CI'a giderse otomatik doğrulanır)
+### Adım 8 — Pytest Smoke Testleri ✅
+- `tests/` klasörü, 4 dosya, ~30 test
+- Gerçek DB'ye karşı çalışıyor (mock yok — Burulas Nisan 2026 verisi)
+- `conftest.py` → `client`, `known_stop`, `known_route`, `known_date` fixture'ları
+- Test grupları:
+  - `test_health.py` → /health
+  - `test_routes.py` → /routes/{id}/stops, /trips, /search
+  - `test_stops.py` → /arrivals, /next, /nearby, /search
+  - `test_trips.py` → /trips/{id}
+- Çalıştırma:
+  ```bash
+  pip install -r requirements-dev.txt
+  pytest -v
+  ```
+- Kontroller: 200/404/422 kodları, sıralama, yarıçap/saat aralığı doğrulama,
+  yetim durakların boş cevabı, türetilen alanların tutarlılığı
+
+## Sıradaki Adım — Şema & Veri Sertleştirme
 - Pydantic response modelleri (Swagger zenginleşir + tip güvenliği)
 - `calendar_dates.txt` desteği (bayram günü gibi istisnalar)
+- (Opsiyonel) pg_trgm GIN index ile arama daha hızlı
 
 ## Teknik Notlar
 - Python 3.14 — psycopg[binary]==3.3.4 kullanılıyor (psycopg2 desteklemiyor)
