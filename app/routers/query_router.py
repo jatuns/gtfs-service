@@ -13,13 +13,16 @@ Endpoint'ler:
   GET /stops/{stop_id}/arrivals     → durağa varış saatleri (date filtresi opsiyonel)
   GET /stops/{stop_id}/next         → şu andan sonraki ilk N varış (kısa yol)
   GET /stops/nearby                 → koordinata yakın duraklar (Haversine)
+  GET /routes/search                → hat adı/numarası ile arama (ILIKE)
+  GET /stops/search                 → durak adı ile arama (ILIKE)
+  GET /trips/{trip_id}              → tek seferin tam detayı (route + stops + saatler)
 """
 
 from datetime import date as date_cls, datetime
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, literal
+from sqlalchemy import func, literal, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -675,5 +678,242 @@ def get_stops_nearby(
                 "distance_m": round(float(r.distance_m), 1),
             }
             for r in rows
+        ],
+    }
+
+
+# ─────────────────────────────────────────
+# GET /routes/search
+# Hat adı / numarası ile arama (ILIKE %q%).
+# ─────────────────────────────────────────
+@router.get("/routes/search")
+def search_routes(
+    q: str = Query(..., min_length=1, max_length=64, description="Arama metni"),
+    limit: int = Query(20, ge=1, le=100),
+    tenant_id: str = Query("burulas"),
+    db: Session = Depends(get_db),
+):
+    """
+    Hat numarası veya uzun adında geçen metni arar.
+
+    ILIKE = büyük/küçük harf duyarsız LIKE (PostgreSQL). Türkçe karakter
+    duyarlılığı PostgreSQL'in collation'ına bağlı; default 'en_US.UTF-8'
+    için 'i' ↔ 'I', 'a' ↔ 'A' eşleşir, ama 'ı' ↔ 'I' eşleşmeyebilir.
+    Gerçek bir prodüksiyon servisinde unaccent extension veya icu collation
+    kullanırdık — şimdilik yeterli.
+
+    Sıralama: önce route_short_name'e göre — '101' önce '1010'dan gelir
+    çünkü PostgreSQL string sıralaması lexicographic ('1', '10', '101'...).
+    """
+    snap = _get_active_snapshot(db, tenant_id)
+
+    pattern = f"%{q}%"
+    rows = (
+        db.query(
+            Route.route_id,
+            Route.route_short_name,
+            Route.route_long_name,
+            Route.agency_id,
+            Route.route_type,
+        )
+        .filter(Route.snapshot_id == snap.id)
+        .filter(
+            or_(
+                Route.route_short_name.ilike(pattern),
+                Route.route_long_name.ilike(pattern),
+                Route.route_id.ilike(pattern),
+            )
+        )
+        .order_by(Route.route_short_name.asc())
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "tenant_id": tenant_id,
+        "snapshot_id": snap.id,
+        "query": {"q": q, "limit": limit},
+        "result_count": len(rows),
+        "routes": [
+            {
+                "route_id": r.route_id,
+                "route_short_name": r.route_short_name,
+                "route_long_name": r.route_long_name,
+                "agency_id": r.agency_id,
+                "route_type": r.route_type,
+            }
+            for r in rows
+        ],
+    }
+
+
+# ─────────────────────────────────────────
+# GET /stops/search
+# Durak adı ile arama.
+# ─────────────────────────────────────────
+@router.get("/stops/search")
+def search_stops(
+    q: str = Query(..., min_length=1, max_length=64, description="Arama metni"),
+    limit: int = Query(20, ge=1, le=100),
+    tenant_id: str = Query("burulas"),
+    db: Session = Depends(get_db),
+):
+    """
+    Durak adında veya stop_id'sinde geçen metni arar.
+
+    Kullanıcı "fsm", "armutköy", "D13-136" gibi şeyler arayabilir —
+    hem stop_name'e hem stop_id'ye ILIKE ile bakıyoruz.
+    """
+    snap = _get_active_snapshot(db, tenant_id)
+
+    pattern = f"%{q}%"
+    rows = (
+        db.query(
+            Stop.stop_id,
+            Stop.stop_name,
+            Stop.stop_lat,
+            Stop.stop_lon,
+            Stop.wheelchair_boarding,
+        )
+        .filter(Stop.snapshot_id == snap.id)
+        .filter(
+            or_(
+                Stop.stop_name.ilike(pattern),
+                Stop.stop_id.ilike(pattern),
+            )
+        )
+        .order_by(Stop.stop_name.asc())
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "tenant_id": tenant_id,
+        "snapshot_id": snap.id,
+        "query": {"q": q, "limit": limit},
+        "result_count": len(rows),
+        "stops": [
+            {
+                "stop_id": r.stop_id,
+                "stop_name": r.stop_name,
+                "stop_lat": r.stop_lat,
+                "stop_lon": r.stop_lon,
+                "wheelchair_boarding": r.wheelchair_boarding,
+            }
+            for r in rows
+        ],
+    }
+
+
+# ─────────────────────────────────────────
+# GET /trips/{trip_id}
+# Tek seferin tam detayı: trip + route + sıralı duraklar + saatler
+# ─────────────────────────────────────────
+@router.get("/trips/{trip_id}")
+def get_trip_detail(
+    trip_id: str,
+    tenant_id: str = Query("burulas"),
+    db: Session = Depends(get_db),
+):
+    """
+    Bir seferin tam detayını döndürür:
+      - Trip meta verisi (route_id, service_id, direction, headsign)
+      - Hat bilgisi (route_short_name, route_long_name)
+      - Sıralı durak listesi (her durakta arrival/departure_time)
+      - Türetilen alanlar:
+          * start_time = ilk durağın departure_time'ı
+          * end_time   = son durağın arrival_time'ı
+          * stop_count = toplam durak sayısı
+
+    'Saat 08:15 kalkışlı 101 seferi nereden nereye gidiyor, hangi
+    duraklardan geçiyor, kaç dakika sürüyor?' sorusunun cevabı.
+    """
+    snap = _get_active_snapshot(db, tenant_id)
+
+    # 1. Trip + Route join — tek sorguda meta + hat bilgisi
+    trip_row = (
+        db.query(
+            Trip.trip_id,
+            Trip.route_id,
+            Trip.service_id,
+            Trip.direction_id,
+            Trip.shape_id,
+            Trip.trip_headsign,
+            Trip.wheelchair_accessible,
+            Trip.bikes_allowed,
+            Route.route_short_name,
+            Route.route_long_name,
+        )
+        .outerjoin(
+            Route,
+            (Route.route_id == Trip.route_id)
+            & (Route.snapshot_id == Trip.snapshot_id),
+        )
+        .filter(Trip.snapshot_id == snap.id)
+        .filter(Trip.trip_id == trip_id)
+        .first()
+    )
+    if not trip_row:
+        raise HTTPException(404, f"trip_id={trip_id} bulunamadı")
+
+    # 2. Stop_times + Stop join, sequence sırasıyla
+    stop_rows = (
+        db.query(
+            StopTime.stop_sequence,
+            StopTime.arrival_time,
+            StopTime.departure_time,
+            StopTime.pickup_type,
+            StopTime.drop_off_type,
+            StopTime.shape_dist_traveled,
+            Stop.stop_id,
+            Stop.stop_name,
+            Stop.stop_lat,
+            Stop.stop_lon,
+        )
+        .join(
+            Stop,
+            (Stop.stop_id == StopTime.stop_id)
+            & (Stop.snapshot_id == StopTime.snapshot_id),
+        )
+        .filter(StopTime.snapshot_id == snap.id)
+        .filter(StopTime.trip_id == trip_id)
+        .order_by(StopTime.stop_sequence.asc())
+        .all()
+    )
+
+    # 3. Türetilen alanlar
+    start_time = stop_rows[0].departure_time if stop_rows else None
+    end_time = stop_rows[-1].arrival_time if stop_rows else None
+
+    return {
+        "tenant_id": tenant_id,
+        "snapshot_id": snap.id,
+        "trip_id": trip_row.trip_id,
+        "route_id": trip_row.route_id,
+        "route_short_name": trip_row.route_short_name,
+        "route_long_name": trip_row.route_long_name,
+        "service_id": trip_row.service_id,
+        "direction_id": trip_row.direction_id,
+        "shape_id": trip_row.shape_id,
+        "trip_headsign": trip_row.trip_headsign,
+        "wheelchair_accessible": trip_row.wheelchair_accessible,
+        "bikes_allowed": trip_row.bikes_allowed,
+        "start_time": start_time,
+        "end_time": end_time,
+        "stop_count": len(stop_rows),
+        "stops": [
+            {
+                "sequence": r.stop_sequence,
+                "stop_id": r.stop_id,
+                "stop_name": r.stop_name,
+                "stop_lat": r.stop_lat,
+                "stop_lon": r.stop_lon,
+                "arrival_time": r.arrival_time,
+                "departure_time": r.departure_time,
+                "pickup_type": r.pickup_type,
+                "drop_off_type": r.drop_off_type,
+                "shape_dist_traveled": r.shape_dist_traveled,
+            }
+            for r in stop_rows
         ],
     }

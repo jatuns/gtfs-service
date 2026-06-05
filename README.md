@@ -41,10 +41,21 @@ FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 - Cevapta her durak için `distance_m` (metre, 0.1 hassasiyet)
 - (İleride) PostGIS + ST_DWithin + GiST index ile hızlandırılabilir
 
-## Sıradaki Adım — Arama & Detay
-- `GET /routes/search?q=` ve `GET /stops/search?q=` (ILIKE araması)
-- `GET /trips/{trip_id}` (tek seferin tam detayı)
-- (İleride) Performans: `stop_times(snapshot_id, stop_id, arrival_time)` composite index
+### Adım 6 — Arama & Sefer Detayı ✅
+- `GET /routes/search?q=&limit=` — hat numarası / adı / route_id'de ILIKE araması
+- `GET /stops/search?q=&limit=` — durak adı / stop_id'de ILIKE araması
+- `GET /trips/{trip_id}` — tek seferin tam detayı:
+  - Trip meta + Route bilgisi (short/long name)
+  - Sıralı durak listesi (arrival/departure + sequence + pickup/drop_off)
+  - Türetilen `start_time`, `end_time`, `stop_count`
+- ILIKE = büyük/küçük harf duyarsız; Türkçe karakter normalizasyonu yok
+  (ileride `unaccent` extension veya icu collation ile çözülür)
+
+## Sıradaki Adım — Performans & Sertleştirme
+- `stop_times(snapshot_id, stop_id, arrival_time)` composite index
+- Pydantic response modelleri ile şema sertleştirme + Swagger zenginleşmesi
+- `calendar_dates.txt` (istisna günler) desteği
+- Pytest ile smoke testler
 
 ## Teknik Notlar
 - Python 3.14 — psycopg[binary]==3.3.4 kullanılıyor (psycopg2 desteklemiyor)
