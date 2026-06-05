@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.models.gtfs import (
     GtfsSnapshot, Agency, Route, Stop,
-    Calendar, Trip, StopTime, Shape
+    Calendar, CalendarDate, Trip, StopTime, Shape
 )
 
 
@@ -59,6 +59,7 @@ def import_gtfs(
         _import_routes(tmp_dir, snapshot, db)
         _import_stops(tmp_dir, snapshot, db)
         _import_calendar(tmp_dir, snapshot, db)
+        _import_calendar_dates(tmp_dir, snapshot, db)   # opsiyonel
         _import_trips(tmp_dir, snapshot, db)
         _import_shapes(tmp_dir, snapshot, db)
         _import_stop_times(tmp_dir, snapshot, db)  # en sona bıraktık, en büyük
@@ -208,6 +209,28 @@ def _import_calendar(tmp_dir: str, snapshot: GtfsSnapshot, db: Session):
     records = df.to_dict(orient="records")
     _bulk_insert(db, Calendar, records)
     print(f"  ✔ calendar: {len(records)} kayıt")
+
+
+# ─────────────────────────────────────────
+# CALENDAR DATES (opsiyonel — bazı feed'lerde yok)
+# ─────────────────────────────────────────
+def _import_calendar_dates(tmp_dir: str, snapshot: GtfsSnapshot, db: Session):
+    """
+    GTFS calendar_dates.txt — istisna günler (bayram, ekstra çalışma, vs.)
+    Dosya opsiyonel; yoksa atlanır ve uygulama yalnızca calendar.txt
+    üzerinden çalışır.
+    """
+    df = _prepare_df(tmp_dir, "calendar_dates.txt", snapshot)
+    if df is None:
+        return
+
+    kolonlar = ["service_id", "date", "exception_type",
+                "snapshot_id", "tenant_id"]
+    df = df[[k for k in kolonlar if k in df.columns]]
+
+    records = df.to_dict(orient="records")
+    _bulk_insert(db, CalendarDate, records)
+    print(f"  ✔ calendar_dates: {len(records)} kayıt")
 
 
 # ─────────────────────────────────────────

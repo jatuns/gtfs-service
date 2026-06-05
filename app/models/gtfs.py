@@ -133,6 +133,34 @@ class Calendar(Base):
 
 
 # ─────────────────────────────────────────
+# 5b. CALENDAR DATE — İstisna günler
+# ─────────────────────────────────────────
+# GTFS calendar_dates.txt:
+#   service_id, date (YYYYMMDD), exception_type
+#   exception_type=1 → o tarihte servis EKSTRA çalışır (calendar'a eklenir)
+#   exception_type=2 → o tarihte servis ÇALIŞMAZ (calendar'dan çıkarılır)
+#
+# Bayramlar, 23 Nisan'ın haftaiçine denk gelip Pazar tarifesine geçilmesi
+# gibi senaryolar bu tabloyla modellenir.
+class CalendarDate(Base):
+    __tablename__ = "calendar_dates"
+
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    snapshot_id    = Column(Integer, ForeignKey("gtfs_snapshots.id"), nullable=False)
+    tenant_id      = Column(String, nullable=False)
+
+    service_id     = Column(String, nullable=False)
+    date           = Column(String, nullable=False)   # "20260423"
+    exception_type = Column(Integer, nullable=False)  # 1=ekle, 2=çıkar
+
+    __table_args__ = (
+        # _active_service_ids tarih bazlı sorgular yapacak
+        Index("ix_calendar_dates_snapshot_date", "snapshot_id", "date"),
+        Index("ix_calendar_dates_tenant", "tenant_id"),
+    )
+
+
+# ─────────────────────────────────────────
 # 6. TRIP — Sefer (bir hat üzerindeki yolculuk)
 # ─────────────────────────────────────────
 class Trip(Base):

@@ -34,6 +34,11 @@ CREATE INDEX IF NOT EXISTS ix_stops_name
 CREATE INDEX IF NOT EXISTS ix_routes_short_name
   ON routes (snapshot_id, route_short_name);
 
+-- _active_service_ids() istisna sorgusu için
+-- (CalendarDate tablosu daha yeni, daha küçük; index yine yardımcı)
+CREATE INDEX IF NOT EXISTS ix_calendar_dates_snapshot_date
+  ON calendar_dates (snapshot_id, date);
+
 -- Kontrol: index'ler oluştu mu?
 \echo
 \echo '─── stop_times index listesi ───'

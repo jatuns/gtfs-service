@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.gtfs import (
-    Calendar, GtfsSnapshot, Route, Stop, Trip, StopTime
+    Calendar, CalendarDate, GtfsSnapshot, Route, Stop, Trip, StopTime
 )
 from app.schemas.query import (
     RouteSearchResponse,
@@ -98,12 +98,19 @@ def _active_service_ids(
     """
     Belirtilen tarihte aktif olan service_id listesini döndürür.
 
-    GTFS calendars.txt mantığı:
-      - Bir servis 'start_date'..'end_date' aralığında geçerlidir
-      - O tarihin haftanın günü kolonu (örn: monday) 1 olmalı
-      - GTFS calendar_dates.txt ile istisnalar tanımlanabilir
-        (özel günler, iptal günleri) — şimdilik desteklemiyoruz,
-        ileride eklenebilir.
+    İki kaynak birleştirilir:
+      1) calendars (haftalık tarife)
+         - Servis start_date..end_date aralığında olmalı
+         - O tarihin haftanın günü kolonu (örn: monday) 1 olmalı
+      2) calendar_dates (istisna günler) — opsiyonel tablo
+         - exception_type=1 → eklenen servis (calendar'da olmasa bile)
+         - exception_type=2 → çıkarılan servis (calendar'da olsa bile)
+
+    Algoritma:
+      base = {calendar'dan gelen service_id'ler}
+      added = {calendar_dates'te o tarih için type=1 olanlar}
+      removed = {calendar_dates'te o tarih için type=2 olanlar}
+      sonuç = (base ∪ added) − removed
 
     Tarihler DB'de 'YYYYMMDD' formatında (Burulas verisi öyle gönderiyor).
     Bu format string olarak da doğru sıralanır (lexicographic ordering).
@@ -112,7 +119,8 @@ def _active_service_ids(
     weekday_col = getattr(Calendar, weekday_col_name)
     date_str = target_date.strftime("%Y%m%d")  # "20260604"
 
-    rows = (
+    # 1) calendar tabanı
+    base_rows = (
         db.query(Calendar.service_id)
         .filter(Calendar.snapshot_id == snapshot_id)
         .filter(weekday_col == 1)
@@ -120,7 +128,19 @@ def _active_service_ids(
         .filter(Calendar.end_date >= date_str)
         .all()
     )
-    return [r[0] for r in rows]
+    base = {r[0] for r in base_rows}
+
+    # 2) istisnalar
+    exception_rows = (
+        db.query(CalendarDate.service_id, CalendarDate.exception_type)
+        .filter(CalendarDate.snapshot_id == snapshot_id)
+        .filter(CalendarDate.date == date_str)
+        .all()
+    )
+    added = {sid for sid, t in exception_rows if t == 1}
+    removed = {sid for sid, t in exception_rows if t == 2}
+
+    return list((base | added) - removed)
 
 
 def _now_local() -> datetime:

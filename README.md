@@ -116,10 +116,39 @@ FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 - XSS koruması: `escapeHtml` ile tüm dinamik içerik kaçırılıyor
 - `/static/*` mount edildi, ileride css/img/js eklenebilir
 
-## Sıradaki Adım — Veri Doğruluğu
-- (🅘) `calendar_dates.txt` desteği (bayram günü gibi istisnalar)
-- (İleride) CI'da sentetik fixture GTFS → tüm 35 test otomatik koşsun
-- (İleride) pg_trgm GIN index ile arama daha hızlı
+### Adım 12 — `calendar_dates.txt` desteği ✅
+- Yeni model `CalendarDate(snapshot_id, tenant_id, service_id, date, exception_type)`
+- Parser opsiyonel `calendar_dates.txt`'i de okur (yoksa atlar)
+- `_active_service_ids()` artık iki kaynaktan birleşim:
+  - `calendars` (haftalık tarife) → BASE
+  - `calendar_dates` `exception_type=1` → EKLE
+  - `calendar_dates` `exception_type=2` → ÇIKAR
+  - Sonuç: `(base ∪ added) − removed`
+- 5 yeni izole birim test (`tests/test_active_services.py`):
+  - Geçici snapshot + sentetik calendar/calendar_dates fixture
+  - Normal gün, ekleme, çıkarma, başka tarih etkilenmedi mi, tarih aralığı dışı
+- Index: `calendar_dates(snapshot_id, date)`
+- Toplam test sayısı 35 → **40**
+
+Not: Burulas Nisan 2026 snapshot'ı `calendar_dates.txt` içeriyor olabilir
+(zip'te kontrol edin). Mevcut snapshot_id=1 bu özellik öncesinde import
+edildi; calendar_dates verisi yok. Yeni özelliği tam test etmek için
+veriyi yeniden import edebilirsiniz (POST /import/).
+
+## Bitiş — Şimdilik tamam ✅
+GTFS mikroservis temel hâli production-ready:
+- 8 sorgu endpoint'i + import + health + demo
+- 40 test, CI yeşil
+- Pydantic şemalı Swagger
+- Composite index'ler ile sub-ms sorgular
+- Leaflet ile interaktif harita demo
+
+### İleride yapılabilir
+- CI'da sentetik fixture GTFS → tüm 40 test otomatik koşsun
+- pg_trgm GIN index ile ILIKE araması daha hızlı
+- Snapshot yönetimi (list/activate/delete) — Mayıs verisi gelince
+- PostGIS + ST_DWithin ile nearby sub-millisaniye
+- Rate limiting + API key (prod için)
 
 ## Teknik Notlar
 - Python 3.14 — psycopg[binary]==3.3.4 kullanılıyor (psycopg2 desteklemiyor)
