@@ -1,0 +1,71 @@
+name: CI
+
+# Ne zaman koşar:
+# - main'e push
+# - main'e açılan PR
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint & smoke tests
+    runs-on: ubuntu-latest
+
+    # PostgreSQL servisi — GitHub Actions, Docker konteyneri olarak
+    # otomatik açıp testler bitince kapatır. Health-check ile veritabanı
+    # gerçekten hazır olunca testlere geçilir.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gtfs_user
+          POSTGRES_PASSWORD: gtfs_pass
+          POSTGRES_DB: gtfs_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Python 3.14 henüz GitHub Actions'ta stable değil.
+          # 3.12 ile koşmak yeterli — psycopg3 her iki sürümde çalışıyor.
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      # 1) Tüm Python dosyaları derleniyor mu? (sentaks)
+      - name: Syntax check
+        run: python -m compileall -q app tests
+
+      # 2) Uygulama import edilebiliyor mu? (import zinciri sağlam mı?)
+      #    Burası bağımlılık kurulumu ve modül grafiği için en hızlı dumduz testi.
+      - name: Import check
+        env:
+          DATABASE_URL: postgresql://gtfs_user:gtfs_pass@localhost:5432/gtfs_db
+        run: python -c "from app.main import app; print('app loaded:', app.title)"
+
+      # 3) Veri gerektirmeyen testler.
+      #    test_health.py'nin DB'ye dokunması yok → CI'da güvenle koşar.
+      #    Burulas verisine bağımlı testler ise lokal geliştirici makinesinde
+      #    pytest ile koşulur. Sonraki adımda fixture GTFS ekleyip CI'da
+      #    tam test setini açacağız.
+      - name: Smoke tests (data-independent)
+        env:
+          DATABASE_URL: postgresql://gtfs_user:gtfs_pass@localhost:5432/gtfs_db
+        run: pytest tests/test_health.py -v

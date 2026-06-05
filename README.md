@@ -1,5 +1,7 @@
 # GTFS Mikroservis
 
+[![CI](https://github.com/jatuns/gtfs-service/actions/workflows/ci.yml/badge.svg)](https://github.com/jatuns/gtfs-service/actions/workflows/ci.yml)
+
 FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 
 ## Tamamlanan Adımlar
@@ -90,10 +92,24 @@ FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 - Swagger UI'da artık her endpoint için tam JSON şeması + alan açıklamaları
 - Hâlâ 35/35 test yeşil — cevap formatı değişmedi
 
-## Sıradaki Adım — Veri Doğruluğu
-- `calendar_dates.txt` desteği (bayram günü gibi istisnalar)
-- (Opsiyonel) pg_trgm GIN index ile arama daha hızlı
-- (Opsiyonel) Frontend mini demo (Leaflet ile harita)
+### Adım 10 — GitHub Actions CI ✅
+- `.github/workflows/ci.yml` her push ve PR'da koşar
+- Adımlar:
+  1. PostgreSQL 16 service container
+  2. Python 3.12 + pip cache
+  3. Bağımlılık kurulumu (`requirements-dev.txt`)
+  4. Sentaks kontrolü (`python -m compileall`)
+  5. Import kontrolü (`from app.main import app`)
+  6. Smoke test (`pytest tests/test_health.py`)
+- README'de yeşil/kırmızı rozet
+- Şu an Burulas verisine bağımlı 34 test CI'da skip — sonraki iş:
+  sentetik fixture GTFS ile tam test setini CI'a aç
+
+## Sıradaki Adım — Frontend Demo & Veri Doğruluğu
+- (🅚) Leaflet ile harita demosu (`/stops/nearby` + `/stops/{id}/next`)
+- (🅘) `calendar_dates.txt` desteği (bayram günü gibi istisnalar)
+- (İleride) CI'da sentetik fixture GTFS → tüm 35 test otomatik koşsun
+- (İleride) pg_trgm GIN index ile arama daha hızlı
 
 ## Teknik Notlar
 - Python 3.14 — psycopg[binary]==3.3.4 kullanılıyor (psycopg2 desteklemiyor)
