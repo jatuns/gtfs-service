@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <title>GTFS Demo — Bursa</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Leaflet CSS — CDN'den, kurulum yok -->
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="">
+
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+    #header {
+      background: #1f2937;
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #header h1 { margin: 0; font-size: 18px; }
+    #header .hint { font-size: 13px; color: #cbd5e1; }
+
+    #map { height: calc(100vh - 56px); width: 100%; }
+
+    .popup-route-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .popup-route-row:last-child { border-bottom: none; }
+    .popup-route-badge {
+      background: #2563eb;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 12px;
+      margin-right: 8px;
+    }
+    .popup-time { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+    .popup-headsign { color: #475569; font-size: 11px; margin-top: 2px; }
+    .loading { color: #888; font-style: italic; }
+    .error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <h1>GTFS Mikroservis — Bursa Demo</h1>
+  <div class="hint">
+    Haritaya tıkla → yakın duraklar •
+    Marker'a tıkla → varış saatleri •
+    Veri: Burulas 2026 Nisan (filtre: <span id="filterInfo">2026-04-15, 08:00→</span>)
+  </div>
+</div>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+
+<script>
+  // ─── Sabitler ───────────────────────────────────────────────
+  // API tabanı: aynı sunucudan demo serve ediliyor, dolayısıyla relative.
+  const API = "";
+
+  // Burulas Nisan verisiyle anlamlı sonuç almak için sabit demo filtreleri.
+  // Bugünün tarihini kullansaydık (Haziran), Nisan calendar'ı dışında kalır
+  // ve sonuçlar boş gelirdi. Filtreler aşağıda /arrivals çağrısına gider.
+  const DEMO_DATE = "2026-04-15";   // Nisan ortası, Çarşamba
+  const DEMO_FROM = "08:00:00";
+  const DEMO_TO   = "20:00:00";
+
+  // Sorgu yarıçapı (metre) ve gösterilecek durak sayısı
+  const NEARBY_RADIUS = 500;
+  const NEARBY_LIMIT  = 15;
+
+  // Her durak için varış sayısı (popup'ta)
+  const ARRIVALS_LIMIT = 8;
+
+  // ─── Harita ─────────────────────────────────────────────────
+  // Bursa Ulu Cami merkez başlangıç
+  const map = L.map("map").setView([40.184, 29.061], 14);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(map);
+
+  // İşaret yönetimi — eski sonuçları her yeni tıklamada temizleyelim
+  let stopMarkers = [];
+  let queryMarker = null;
+
+  function clearStops() {
+    stopMarkers.forEach(m => map.removeLayer(m));
+    stopMarkers = [];
+  }
+
+  // ─── Haritaya tıklayınca: yakındaki durakları getir ────────
+  map.on("click", async (e) => {
+    const { lat, lng } = e.latlng;
+
+    // Sorgu noktasını kırmızı işaret
+    if (queryMarker) map.removeLayer(queryMarker);
+    queryMarker = L.circleMarker([lat, lng], {
+      radius: 8, color: "#dc2626", fillColor: "#dc2626", fillOpacity: 0.8,
+    }).addTo(map);
+    queryMarker.bindPopup("Sorgu noktası").openPopup();
+
+    clearStops();
+
+    try {
+      const url = `${API}/stops/nearby?lat=${lat}&lon=${lng}&radius_m=${NEARBY_RADIUS}&limit=${NEARBY_LIMIT}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      if (data.stop_count === 0) {
+        queryMarker.setPopupContent(
+          `Bu noktanın ${NEARBY_RADIUS}m çevresinde durak yok.`
+        );
+        return;
+      }
+
+      data.stops.forEach(stop => {
+        if (stop.stop_lat == null || stop.stop_lon == null) return;
+
+        const marker = L.marker([stop.stop_lat, stop.stop_lon]).addTo(map);
+        // Marker'a meta veriyi iliştir — popup açılırken kullanırız
+        marker._stopMeta = stop;
+
+        marker.bindPopup(`
+          <strong>${escapeHtml(stop.stop_name || stop.stop_id)}</strong><br>
+          <span style="color:#64748b">
+            ${stop.distance_m.toFixed(0)} m • ${stop.stop_id}
+          </span><br>
+          <div class="loading">Varışlar yükleniyor...</div>
+        `);
+
+        // Marker'a tıklayınca varışları çek
+        marker.on("popupopen", () => loadArrivals(marker));
+        stopMarkers.push(marker);
+      });
+
+      queryMarker.setPopupContent(
+        `${data.stop_count} yakın durak bulundu (${NEARBY_RADIUS}m).`
+      );
+    } catch (err) {
+      console.error(err);
+      queryMarker.setPopupContent(
+        `<span class="error">Hata: ${escapeHtml(err.message)}</span>`
+      );
+    }
+  });
+
+  // ─── Bir durağın varışlarını çek ve popup'ı güncelle ─────────
+  async function loadArrivals(marker) {
+    const stop = marker._stopMeta;
+    if (!stop) return;
+
+    const params = new URLSearchParams({
+      date: DEMO_DATE,
+      from_time: DEMO_FROM,
+      to_time: DEMO_TO,
+      limit: ARRIVALS_LIMIT,
+    });
+    const url = `${API}/stops/${encodeURIComponent(stop.stop_id)}/arrivals?${params}`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      const rows = data.arrivals.length === 0
+        ? `<div class="loading">${DEMO_DATE} için filtreye uyan varış yok.</div>`
+        : data.arrivals.map(a => `
+            <div class="popup-route-row">
+              <div>
+                <span class="popup-route-badge">${escapeHtml(a.route_id)}</span>
+                <span class="popup-time">${escapeHtml(a.arrival_time)}</span>
+                <div class="popup-headsign">${escapeHtml(a.trip_headsign || "")}</div>
+              </div>
+            </div>
+          `).join("");
+
+      const html = `
+        <strong>${escapeHtml(stop.stop_name || stop.stop_id)}</strong><br>
+        <span style="color:#64748b">${stop.distance_m.toFixed(0)} m • ${stop.stop_id}</span>
+        <hr style="margin:6px 0">
+        ${rows}
+      `;
+      marker.setPopupContent(html);
+    } catch (err) {
+      console.error(err);
+      marker.setPopupContent(
+        `<strong>${escapeHtml(stop.stop_name || stop.stop_id)}</strong><br>
+         <span class="error">Hata: ${escapeHtml(err.message)}</span>`
+      );
+    }
+  }
+
+  // XSS koruması — DOMPurify yerine basit kaçış
+  function escapeHtml(str) {
+    if (str == null) return "";
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  // Filtre bilgisini header'a yazdır
+  document.getElementById("filterInfo").textContent =
+    `${DEMO_DATE}, ${DEMO_FROM.slice(0,5)}–${DEMO_TO.slice(0,5)}`;
+</script>
+
+</body>
+</html>

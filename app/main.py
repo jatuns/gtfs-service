@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine
 from app.models import gtfs  # noqa: F401  — modelleri Base.metadata'ya yükler
@@ -35,6 +38,18 @@ app = FastAPI(
 # Router'ları uygulamaya bağla
 app.include_router(import_router.router)
 app.include_router(query_router.router)
+
+# ─── Static dosyalar (Leaflet demo) ──────────────────────────
+# /demo  → demo.html (kullanıcının tarayıcısı için kısa yol)
+# /static → tüm static dosyalar (ileride css/img eklenebilir)
+_STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+
+
+@app.get("/demo", include_in_schema=False)
+def demo():
+    """Leaflet tabanlı interaktif harita demosu."""
+    return FileResponse(_STATIC_DIR / "demo.html")
 
 
 @app.get("/health")

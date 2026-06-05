@@ -105,8 +105,18 @@ FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 - Şu an Burulas verisine bağımlı 34 test CI'da skip — sonraki iş:
   sentetik fixture GTFS ile tam test setini CI'a aç
 
-## Sıradaki Adım — Frontend Demo & Veri Doğruluğu
-- (🅚) Leaflet ile harita demosu (`/stops/nearby` + `/stops/{id}/next`)
+### Adım 11 — Leaflet Frontend Demo ✅
+- `app/static/demo.html` — tek HTML, vanilla JS, Leaflet CDN
+- `/demo` endpoint'i ile tarayıcıdan açılır
+- Etkileşim:
+  - Haritaya tıkla → `/stops/nearby` (500m yarıçap, 15 durak)
+  - Marker'a tıkla → `/stops/{id}/arrivals` (popup'ta varış saatleri)
+- Demo Nisan verisi için sabit filtre (`date=2026-04-15`, 08:00–20:00)
+  çünkü gerçek "şu an" Haziran → veri dışında
+- XSS koruması: `escapeHtml` ile tüm dinamik içerik kaçırılıyor
+- `/static/*` mount edildi, ileride css/img/js eklenebilir
+
+## Sıradaki Adım — Veri Doğruluğu
 - (🅘) `calendar_dates.txt` desteği (bayram günü gibi istisnalar)
 - (İleride) CI'da sentetik fixture GTFS → tüm 35 test otomatik koşsun
 - (İleride) pg_trgm GIN index ile arama daha hızlı
