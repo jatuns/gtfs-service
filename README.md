@@ -51,11 +51,23 @@ FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 - ILIKE = büyük/küçük harf duyarsız; Türkçe karakter normalizasyonu yok
   (ileride `unaccent` extension veya icu collation ile çözülür)
 
-## Sıradaki Adım — Performans & Sertleştirme
-- `stop_times(snapshot_id, stop_id, arrival_time)` composite index
-- Pydantic response modelleri ile şema sertleştirme + Swagger zenginleşmesi
-- `calendar_dates.txt` (istisna günler) desteği
-- Pytest ile smoke testler
+### Adım 7 — Performans Index'leri ✅
+- Yeni composite index'ler (modelde + manuel SQL):
+  - `stop_times(snapshot_id, stop_id, arrival_time)` → `/arrivals`, `/next` için
+  - `trips(snapshot_id, service_id)` → date filtreli sorgular için
+  - `stops(snapshot_id, stop_name)` → `/stops/search` için
+  - `routes(snapshot_id, route_short_name)` → `/routes/search` için
+- Mevcut DB'ye uygulamak için: `scripts/create_indexes.sql`
+  ```bash
+  docker exec -i gtfs_postgres psql -U gtfs_user -d gtfs_db \
+    < scripts/create_indexes.sql
+  ```
+- Modele de eklendi (`Index(...)` __table_args__'a) — yeni tenant'larda otomatik
+
+## Sıradaki Adım — Sertleştirme
+- Pytest ile smoke testler (CI'a giderse otomatik doğrulanır)
+- Pydantic response modelleri (Swagger zenginleşir + tip güvenliği)
+- `calendar_dates.txt` desteği (bayram günü gibi istisnalar)
 
 ## Teknik Notlar
 - Python 3.14 — psycopg[binary]==3.3.4 kullanılıyor (psycopg2 desteklemiyor)

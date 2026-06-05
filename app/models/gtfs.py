@@ -77,6 +77,9 @@ class Route(Base):
     __table_args__ = (
         Index("ix_routes_snapshot_route", "snapshot_id", "route_id"),
         Index("ix_routes_tenant", "tenant_id"),
+        # /routes/search için (ILIKE '%q%' kısmi yararlanır;
+        # tam yararlanmak için pg_trgm GIN index gerek — ileride)
+        Index("ix_routes_short_name", "snapshot_id", "route_short_name"),
     )
 
 
@@ -101,6 +104,9 @@ class Stop(Base):
     __table_args__ = (
         Index("ix_stops_snapshot_stop", "snapshot_id", "stop_id"),
         Index("ix_stops_tenant", "tenant_id"),
+        # /stops/search için (yine ILIKE ile sınırlı fayda;
+        # pg_trgm ile çok daha hızlı olur — ileride)
+        Index("ix_stops_name", "snapshot_id", "stop_name"),
     )
 
 
@@ -150,6 +156,8 @@ class Trip(Base):
         Index("ix_trips_snapshot_trip", "snapshot_id", "trip_id"),
         Index("ix_trips_snapshot_route", "snapshot_id", "route_id"),
         Index("ix_trips_tenant", "tenant_id"),
+        # date filtreli sorgular için: Trip.service_id IN (...)
+        Index("ix_trips_snapshot_service", "snapshot_id", "service_id"),
     )
 
 
@@ -177,6 +185,10 @@ class StopTime(Base):
         Index("ix_stop_times_trip", "snapshot_id", "trip_id"),
         Index("ix_stop_times_stop", "snapshot_id", "stop_id"),
         Index("ix_stop_times_tenant", "tenant_id"),
+        # /stops/{id}/arrivals ve /stops/{id}/next için kritik:
+        # filtre (snapshot_id, stop_id, arrival_time >= X) + ORDER BY arrival_time
+        # Bu üçlü index varsa PostgreSQL tek tarama yapar, sıralama bedava.
+        Index("ix_stop_times_stop_arrival", "snapshot_id", "stop_id", "arrival_time"),
     )
 
 
