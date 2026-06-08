@@ -242,3 +242,52 @@ class TripDetailResponse(TenantEnvelope):
     end_time: Optional[str] = None
     stop_count: int
     stops: list[TripStopEntry]
+
+
+# ─────────────────────────────────────────
+# /journey — Yolculuk planlama
+# ─────────────────────────────────────────
+
+class JourneyLeg(BaseModel):
+    """Tek seferli (aktarmasız) bir yolculuk etabı."""
+    trip_id: str
+    route_id: str
+    route_short_name: Optional[str] = None
+    trip_headsign: Optional[str] = None
+
+    from_stop_id: str
+    from_stop_name: Optional[str] = None
+    from_stop_sequence: int
+    departure_time: str = Field(..., description="HH:MM:SS")
+
+    to_stop_id: str
+    to_stop_name: Optional[str] = None
+    to_stop_sequence: int
+    arrival_time: str = Field(..., description="HH:MM:SS")
+
+    intermediate_stop_count: int = Field(
+        ..., description="Biniş ile iniş arası kaç durak geçilecek"
+    )
+    duration_seconds: int = Field(
+        ..., description="Yolculuk süresi (saniye)"
+    )
+
+
+class JourneyQuery(BaseModel):
+    from_stop: str
+    to_stop: str
+    from_time: str
+    date: str
+    limit: int
+
+
+class JourneyResponse(TenantEnvelope):
+    query: JourneyQuery
+    weekday: str = Field(..., description="monday..sunday")
+    active_service_count: int
+    journey_count: int
+    direct_journeys: list[JourneyLeg] = Field(
+        default_factory=list,
+        description="Aktarmasız yolculuklar — arrival_time'a göre artan sırada",
+    )
+    note: Optional[str] = None

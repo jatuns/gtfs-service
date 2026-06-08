@@ -16,6 +16,7 @@ Endpoint'ler:
   GET /routes/search                → hat adı/numarası ile arama (ILIKE)
   GET /stops/search                 → durak adı ile arama (ILIKE)
   GET /trips/{trip_id}              → tek seferin tam detayı (route + stops + saatler)
+  GET /journey                      → X→Y yolculuk planı (v1: doğrudan seferler)
 """
 
 from datetime import date as date_cls, datetime
@@ -30,6 +31,7 @@ from app.models.gtfs import (
     Calendar, CalendarDate, GtfsSnapshot, Route, Stop, Trip, StopTime
 )
 from app.schemas.query import (
+    JourneyResponse,
     RouteSearchResponse,
     RouteStopsResponse,
     RouteTripsResponse,
@@ -39,6 +41,7 @@ from app.schemas.query import (
     StopsNearbyResponse,
     TripDetailResponse,
 )
+from app.services.journey_planner import find_direct_journeys
 
 router = APIRouter(tags=["Query"])
 
@@ -946,4 +949,107 @@ def get_trip_detail(
             }
             for r in stop_rows
         ],
+    }
+
+
+# ─────────────────────────────────────────
+# GET /journey
+# v1: Doğrudan (aktarmasız) yolculuk planlama
+# ─────────────────────────────────────────
+@router.get("/journey", response_model=JourneyResponse)
+def plan_journey(
+    from_stop: str = Query(..., description="Biniş durağı stop_id"),
+    to_stop: str = Query(..., description="İniş durağı stop_id"),
+    from_time: str = Query(
+        ..., description="En erken kalkış saati (HH:MM:SS)"
+    ),
+    date: str = Query(
+        ..., description="Yolculuk tarihi (YYYY-MM-DD) — servis günü belirler"
+    ),
+    limit: int = Query(5, ge=1, le=20),
+    tenant_id: str = Query("burulas"),
+    db: Session = Depends(get_db),
+):
+    """
+    Verilen tarih ve saatte from_stop'tan to_stop'a yolculuk önerileri.
+
+    v1: SADECE doğrudan (aktarmasız) seferler. Tek bir trip hem
+    from_stop'u hem to_stop'u (stop_sequence'de doğru sırayla)
+    ziyaret etmeli, from_time veya sonrasında kalkmalı.
+
+    Sıralama: arrival_time artan — Y'ye en erken ulaşan en üstte.
+
+    Aktarmalı yolculuklar v2'de eklenebilir (1 aktarma:
+    M ara durağında iki trip'i bağlayarak; 2 aktarma: ...).
+    """
+    snap = _get_active_snapshot(db, tenant_id)
+    target = _parse_date(date)
+
+    active = _active_service_ids(db, snap.id, target)
+    weekday = _WEEKDAY_COLUMNS[target.weekday()]
+
+    if not active:
+        return {
+            "tenant_id": tenant_id,
+            "snapshot_id": snap.id,
+            "query": {
+                "from_stop": from_stop,
+                "to_stop": to_stop,
+                "from_time": from_time,
+                "date": date,
+                "limit": limit,
+            },
+            "weekday": weekday,
+            "active_service_count": 0,
+            "journey_count": 0,
+            "direct_journeys": [],
+            "note": f"{date} tarihinde aktif servis yok.",
+        }
+
+    journeys = find_direct_journeys(
+        db=db,
+        snapshot_id=snap.id,
+        from_stop=from_stop,
+        to_stop=to_stop,
+        from_time=from_time,
+        active_service_ids=active,
+        limit=limit,
+    )
+
+    return {
+        "tenant_id": tenant_id,
+        "snapshot_id": snap.id,
+        "query": {
+            "from_stop": from_stop,
+            "to_stop": to_stop,
+            "from_time": from_time,
+            "date": date,
+            "limit": limit,
+        },
+        "weekday": weekday,
+        "active_service_count": len(active),
+        "journey_count": len(journeys),
+        "direct_journeys": [
+            {
+                "trip_id": j.trip_id,
+                "route_id": j.route_id,
+                "route_short_name": j.route_short_name,
+                "trip_headsign": j.trip_headsign,
+                "from_stop_id": j.from_stop_id,
+                "from_stop_name": j.from_stop_name,
+                "from_stop_sequence": j.from_stop_sequence,
+                "departure_time": j.departure_time,
+                "to_stop_id": j.to_stop_id,
+                "to_stop_name": j.to_stop_name,
+                "to_stop_sequence": j.to_stop_sequence,
+                "arrival_time": j.arrival_time,
+                "intermediate_stop_count": j.intermediate_stop_count,
+                "duration_seconds": j.duration_seconds,
+            }
+            for j in journeys
+        ],
+        "note": (
+            "Doğrudan sefer bulunamadı. v2'de aktarmalı seferler eklenebilir."
+            if not journeys else None
+        ),
     }

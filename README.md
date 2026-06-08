@@ -143,6 +143,19 @@ GTFS mikroservis temel hâli production-ready:
 - Composite index'ler ile sub-ms sorgular
 - Leaflet ile interaktif harita demo
 
+### Adım 14 — Yolculuk Planlama v1 ✅
+- Yeni servis: `app/services/journey_planner.py`
+  - `find_direct_journeys()` — SQL self-join ile doğrudan sefer arama
+  - X durağı + Y durağı + aynı trip + sequence kontrolü + active service
+  - 'Earliest arrival' sıralı, top N alternatif
+- Yeni endpoint: `GET /journey?from_stop=&to_stop=&from_time=&date=&limit=`
+- Yeni Pydantic şemaları: `JourneyLeg`, `JourneyResponse`
+- 9 yeni test (`tests/test_journey.py`) — **49/49 yeşil**
+- v2/v3 yol haritası kodda not düşüldü:
+  - 1-aktarmalı (aynı durakta otobüs değiştirme)
+  - 2-aktarmalı + yürüme transferleri
+  - RAPTOR / CSA gibi modern algoritmalar
+
 ### Adım 13 — CI Fixture Seed ✅
 - `tests/fixtures/mini_gtfs/` — küçük sentetik GTFS feed (5 KB zip)
   - 6 hat, 11 durak, 13 sefer, 40 stop_time
