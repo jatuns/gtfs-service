@@ -273,11 +273,22 @@ class JourneyLeg(BaseModel):
     )
 
 
+class Journey(BaseModel):
+    """1 veya daha fazla etap içeren tam yolculuk."""
+    transfer_count: int = Field(..., description="Aktarma sayısı: 0 = direct, 1+ = aktarmalı")
+    departure_time: str
+    arrival_time: str
+    total_duration_seconds: int
+    legs: list[JourneyLeg]
+
+
 class JourneyQuery(BaseModel):
     from_stop: str
     to_stop: str
     from_time: str
     date: str
+    max_transfers: int
+    min_transfer_seconds: int
     limit: int
 
 
@@ -286,8 +297,9 @@ class JourneyResponse(TenantEnvelope):
     weekday: str = Field(..., description="monday..sunday")
     active_service_count: int
     journey_count: int
-    direct_journeys: list[JourneyLeg] = Field(
+    journeys: list[Journey] = Field(
         default_factory=list,
-        description="Aktarmasız yolculuklar — arrival_time'a göre artan sırada",
+        description="Direct + (opsiyonel) 1-transfer yolculuklar; "
+                    "arrival_time → transfer_count → duration sıralı",
     )
     note: Optional[str] = None

@@ -143,18 +143,26 @@ GTFS mikroservis temel hâli production-ready:
 - Composite index'ler ile sub-ms sorgular
 - Leaflet ile interaktif harita demo
 
-### Adım 14 — Yolculuk Planlama v1 ✅
+### Adım 15 — Yolculuk Planlama v2 (1 aktarmalı) ✅
+- `journey_planner.py` genişletildi:
+  - `Journey` veri tipi (legs[], transfer_count, total_duration)
+  - `find_one_transfer_journeys()` — X → M → Y matching
+    - 2 SQL sorgusu (leg1, leg2), Python tarafında merge
+    - min_transfer_seconds koruyucu, aynı trip exclusion, M ∉ {X, Y}
+  - `plan_journeys()` üst düzey: direct + transfer birleştir + sıralı dedup
+- Endpoint güncellendi: `max_transfers` (0/1) + `min_transfer_seconds`
+- Cevap formatı: `direct_journeys` → `journeys[]` (her birinde legs)
+- Sıralama: arrival_time → transfer_count → duration
+- Yeni testler: 14 test toplam (transfer doğruluğu, duration consistency,
+  max_transfers=0 sadece direct, vs.) — **53/53 yeşil**
+
+### Adım 14 — Yolculuk Planlama v1 (doğrudan) ✅
 - Yeni servis: `app/services/journey_planner.py`
   - `find_direct_journeys()` — SQL self-join ile doğrudan sefer arama
   - X durağı + Y durağı + aynı trip + sequence kontrolü + active service
   - 'Earliest arrival' sıralı, top N alternatif
 - Yeni endpoint: `GET /journey?from_stop=&to_stop=&from_time=&date=&limit=`
 - Yeni Pydantic şemaları: `JourneyLeg`, `JourneyResponse`
-- 9 yeni test (`tests/test_journey.py`) — **49/49 yeşil**
-- v2/v3 yol haritası kodda not düşüldü:
-  - 1-aktarmalı (aynı durakta otobüs değiştirme)
-  - 2-aktarmalı + yürüme transferleri
-  - RAPTOR / CSA gibi modern algoritmalar
 
 ### Adım 13 — CI Fixture Seed ✅
 - `tests/fixtures/mini_gtfs/` — küçük sentetik GTFS feed (5 KB zip)
