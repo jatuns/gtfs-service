@@ -1,0 +1,1553 @@
+{
+	"info": {
+		"_postman_id": "f489af6d-cd52-42fd-a103-0f99e8226ea7",
+		"name": "GTFS Mikroservis",
+		"description": "Burulas ve diğer operatörler için GTFS veri servisi",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "47917517",
+		"_collection_link": "https://baris-s-team-2.postman.co/workspace/Team-Workspace~9c8f783f-8057-45ff-8ac3-9bc933b9dbe4/collection/47917517-f489af6d-cd52-42fd-a103-0f99e8226ea7?action=share&source=collection_link&creator=47917517"
+	},
+	"item": [
+		{
+			"name": "routes",
+			"item": [
+				{
+					"name": "{route_id}",
+					"item": [
+						{
+							"name": "Get Route Stops",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"200 dönüyor\", () => pm.response.to.have.status(200));",
+											"pm.test(\"Stop count > 0\", () => {",
+											"    pm.expect(pm.response.json().stop_count).to.be.above(0);",
+											"});",
+											"pm.test(\"Sequence sırayla artıyor\", () => {",
+											"    const seqs = pm.response.json().stops.map(s => s.sequence);",
+											"    pm.expect(seqs).to.eql(seqs.slice().sort((a, b) => a - b));",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/routes/{{knownRoute}}/stops?tenant_id={{tenant}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"routes",
+										"{{knownRoute}}",
+										"stops"
+									],
+									"query": [
+										{
+											"key": "tenant_id",
+											"value": "{{tenant}}"
+										}
+									]
+								},
+								"description": "Bir hattın duraklarını sıralı olarak döndürür.\n\nMantık:\n  1. route_id'ye ait bir trip seç (örnek olarak ilk trip yeterli,\n     çünkü aynı route + direction için stop dizisi aynıdır)\n  2. O trip'in stop_times kayıtlarını stop_sequence'a göre sırala\n  3. Her stop_id için Stop tablosundan ad/koord bilgisini join et"
+							},
+							"response": [
+								{
+									"name": "Successful Response",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/routes/:route_id/stops?direction_id=3194&tenant_id=burulas",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"routes",
+												":route_id",
+												"stops"
+											],
+											"query": [
+												{
+													"key": "direction_id",
+													"value": "3194"
+												},
+												{
+													"key": "tenant_id",
+													"value": "burulas"
+												}
+											],
+											"variable": [
+												{
+													"key": "route_id",
+													"value": "string",
+													"description": "(Required) "
+												}
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"tenant_id\": \"string\",\n  \"snapshot_id\": 984,\n  \"route_id\": \"string\",\n  \"sample_trip_id\": \"string\",\n  \"stop_count\": 3978,\n  \"stops\": [\n    {\n      \"sequence\": 467,\n      \"stop_id\": \"string\",\n      \"stop_name\": \"string\",\n      \"stop_lat\": 9421.846193942138,\n      \"stop_lon\": 1179.7860722472376,\n      \"arrival_time\": \"string\",\n      \"departure_time\": \"string\"\n    },\n    {\n      \"sequence\": 7178,\n      \"stop_id\": \"string\",\n      \"stop_name\": \"string\",\n      \"stop_lat\": 4529.538571074352,\n      \"stop_lon\": 9289.40545945646,\n      \"arrival_time\": \"string\",\n      \"departure_time\": \"string\"\n    }\n  ],\n  \"direction_id\": 3772\n}"
+								},
+								{
+									"name": "Validation Error",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/routes/:route_id/stops?direction_id=3194&tenant_id=burulas",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"routes",
+												":route_id",
+												"stops"
+											],
+											"query": [
+												{
+													"key": "direction_id",
+													"value": "3194"
+												},
+												{
+													"key": "tenant_id",
+													"value": "burulas"
+												}
+											],
+											"variable": [
+												{
+													"key": "route_id",
+													"value": "string",
+													"description": "(Required) "
+												}
+											]
+										}
+									},
+									"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+									"code": 422,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    }\n  ]\n}"
+								}
+							]
+						},
+						{
+							"name": "Get Route Trips",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"200 dönüyor\", () => pm.response.to.have.status(200));",
+											"pm.test(\"Trip count > 0\", () => {",
+											"    pm.expect(pm.response.json().trip_count).to.be.above(0);",
+											"});",
+											"pm.test(\"Start time'a göre sıralı\", () => {",
+											"    const times = pm.response.json().trips.map(t => t.start_time);",
+											"    pm.expect(times).to.eql([...times].sort());",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/routes/{{knownRoute}}/trips?limit=10",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"routes",
+										"{{knownRoute}}",
+										"trips"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "10"
+										},
+										{
+											"key": "tenant_id",
+											"value": "{{tenant}}",
+											"disabled": true
+										}
+									]
+								},
+								"description": "Bir hatta ait seferleri listeler.\n\nHer trip için ilk durağın kalkış saatini (start_time) ekliyoruz,\nçünkü saat sırasına göre göstermek istiyoruz.\n\ndate verilirse: o tarihin haftanın gününe göre çalışan service_id'ler\nbulunur ve sefer listesi onlara filtrelenir. service_id ile birlikte\nverilebilir — ikisi de uygulanır (AND)."
+							},
+							"response": [
+								{
+									"name": "Successful Response",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/routes/:route_id/trips?direction_id=3194&service_id=string&date=string&limit=200&tenant_id=burulas",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"routes",
+												":route_id",
+												"trips"
+											],
+											"query": [
+												{
+													"key": "direction_id",
+													"value": "3194"
+												},
+												{
+													"key": "service_id",
+													"value": "string"
+												},
+												{
+													"key": "date",
+													"value": "string"
+												},
+												{
+													"key": "limit",
+													"value": "200"
+												},
+												{
+													"key": "tenant_id",
+													"value": "burulas"
+												}
+											],
+											"variable": [
+												{
+													"key": "route_id",
+													"value": "string",
+													"description": "(Required) "
+												}
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"tenant_id\": \"string\",\n  \"snapshot_id\": 2135,\n  \"route_id\": \"string\",\n  \"trip_count\": 7159,\n  \"trips\": [\n    {\n      \"trip_id\": \"string\",\n      \"service_id\": \"string\",\n      \"direction_id\": 4881,\n      \"shape_id\": \"string\",\n      \"trip_headsign\": \"string\",\n      \"start_time\": \"string\"\n    },\n    {\n      \"trip_id\": \"string\",\n      \"service_id\": \"string\",\n      \"direction_id\": 5344,\n      \"shape_id\": \"string\",\n      \"trip_headsign\": \"string\",\n      \"start_time\": \"st\"\n    }\n  ],\n  \"direction_id\": 7136,\n  \"service_id\": \"string\",\n  \"date\": \"string\"\n}"
+								},
+								{
+									"name": "Validation Error",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/routes/:route_id/trips?direction_id=3194&service_id=string&date=string&limit=200&tenant_id=burulas",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"routes",
+												":route_id",
+												"trips"
+											],
+											"query": [
+												{
+													"key": "direction_id",
+													"value": "3194"
+												},
+												{
+													"key": "service_id",
+													"value": "string"
+												},
+												{
+													"key": "date",
+													"value": "string"
+												},
+												{
+													"key": "limit",
+													"value": "200"
+												},
+												{
+													"key": "tenant_id",
+													"value": "burulas"
+												}
+											],
+											"variable": [
+												{
+													"key": "route_id",
+													"value": "string",
+													"description": "(Required) "
+												}
+											]
+										}
+									},
+									"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+									"code": 422,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    }\n  ]\n}"
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "Search Routes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/routes/search?q=string&limit=20&tenant_id=burulas",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"routes",
+								"search"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "string",
+									"description": "(Required) Arama metni"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								},
+								{
+									"key": "tenant_id",
+									"value": "burulas"
+								}
+							]
+						},
+						"description": "Hat numarası veya uzun adında geçen metni arar.\n\nILIKE = büyük/küçük harf duyarsız LIKE (PostgreSQL). Türkçe karakter\nduyarlılığı PostgreSQL'in collation'ına bağlı; default 'en_US.UTF-8'\niçin 'i' ↔ 'I', 'a' ↔ 'A' eşleşir, ama 'ı' ↔ 'I' eşleşmeyebilir.\nGerçek bir prodüksiyon servisinde unaccent extension veya icu collation\nkullanırdık — şimdilik yeterli.\n\nSıralama: önce route_short_name'e göre — '101' önce '1010'dan gelir\nçünkü PostgreSQL string sıralaması lexicographic ('1', '10', '101'...)."
+					},
+					"response": [
+						{
+							"name": "Successful Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/routes/search?q=string&limit=20&tenant_id=burulas",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"routes",
+										"search"
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "string"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										},
+										{
+											"key": "tenant_id",
+											"value": "burulas"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"tenant_id\": \"string\",\n  \"snapshot_id\": 9767,\n  \"query\": {\n    \"q\": \"string\",\n    \"limit\": 7738\n  },\n  \"result_count\": 2276,\n  \"routes\": [\n    {\n      \"route_id\": \"string\",\n      \"route_short_name\": \"string\",\n      \"route_long_name\": \"s\",\n      \"agency_id\": \"string\",\n      \"route_type\": 5086\n    },\n    {\n      \"route_id\": \"string\",\n      \"route_short_name\": \"string\",\n      \"route_long_name\": \"string\",\n      \"agency_id\": \"string\",\n      \"route_type\": 6568\n    }\n  ]\n}"
+						},
+						{
+							"name": "Validation Error",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/routes/search?q=string&limit=20&tenant_id=burulas",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"routes",
+										"search"
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "string"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										},
+										{
+											"key": "tenant_id",
+											"value": "burulas"
+										}
+									]
+								}
+							},
+							"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+							"code": 422,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    }\n  ]\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "stops",
+			"item": [
+				{
+					"name": "{stop_id}",
+					"item": [
+						{
+							"name": "Get Stop Arrivals",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"200 dönüyor\", () => pm.response.to.have.status(200));",
+											"pm.test(\"Stop name dolu\", () => {",
+											"    pm.expect(pm.response.json().stop_name).to.be.a(\"string\");",
+											"});",
+											"pm.test(\"now_local ISO formatında\", () => {",
+											"    pm.expect(pm.response.json().now_local).to.match(/^\\d{4}-\\d{2}-\\d{2}T/);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/stops/{{knownStop}}/next?count=5&tenant_id={{tenant}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"stops",
+										"{{knownStop}}",
+										"next"
+									],
+									"query": [
+										{
+											"key": "count",
+											"value": "5"
+										},
+										{
+											"key": "tenant_id",
+											"value": "{{tenant}}"
+										}
+									]
+								},
+								"description": "Bir durağa varış saatlerini döndürür.\n\nHer satır = bir sefer × bu durak.\nSaat aralığı verilirse o aralıkta filtrelenir.\n\ndate verilirse: o tarihin haftanın gününe uyan service_id'ler bulunur\nve sadece o servislere ait varışlar döner. Pazartesi/Pazar farkını\nböyle ayırırız."
+							},
+							"response": [
+								{
+									"name": "Successful Response",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/stops/:stop_id/arrivals?from_time=string&to_time=string&date=string&route_id=string&limit=100&tenant_id=burulas",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"stops",
+												":stop_id",
+												"arrivals"
+											],
+											"query": [
+												{
+													"key": "from_time",
+													"value": "string"
+												},
+												{
+													"key": "to_time",
+													"value": "string"
+												},
+												{
+													"key": "date",
+													"value": "string"
+												},
+												{
+													"key": "route_id",
+													"value": "string"
+												},
+												{
+													"key": "limit",
+													"value": "100"
+												},
+												{
+													"key": "tenant_id",
+													"value": "burulas"
+												}
+											],
+											"variable": [
+												{
+													"key": "stop_id",
+													"value": "string",
+													"description": "(Required) "
+												}
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"tenant_id\": \"string\",\n  \"snapshot_id\": 5292,\n  \"stop_id\": \"string\",\n  \"filters\": {\n    \"limit\": 3965,\n    \"from_time\": \"string\",\n    \"to_time\": \"string\",\n    \"date\": \"string\",\n    \"route_id\": \"string\"\n  },\n  \"arrival_count\": 992,\n  \"arrivals\": [\n    {\n      \"arrival_time\": \"string\",\n      \"trip_id\": \"string\",\n      \"route_id\": \"string\",\n      \"departure_time\": \"string\",\n      \"direction_id\": 5011,\n      \"trip_headsign\": \"string\",\n      \"service_id\": \"string\",\n      \"stop_sequence\": 2555\n    },\n    {\n      \"arrival_time\": \"string\",\n      \"trip_id\": \"st\",\n      \"route_id\": \"string\",\n      \"departure_time\": \"string\",\n      \"direction_id\": 7473,\n      \"trip_headsign\": \"string\",\n      \"service_id\": \"string\",\n      \"stop_sequence\": 8668\n    }\n  ],\n  \"stop_name\": \"string\",\n  \"stop_lat\": 5903.086745478925,\n  \"stop_lon\": 835.6314828330658\n}"
+								},
+								{
+									"name": "Validation Error",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/stops/:stop_id/arrivals?from_time=string&to_time=string&date=string&route_id=string&limit=100&tenant_id=burulas",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"stops",
+												":stop_id",
+												"arrivals"
+											],
+											"query": [
+												{
+													"key": "from_time",
+													"value": "string"
+												},
+												{
+													"key": "to_time",
+													"value": "string"
+												},
+												{
+													"key": "date",
+													"value": "string"
+												},
+												{
+													"key": "route_id",
+													"value": "string"
+												},
+												{
+													"key": "limit",
+													"value": "100"
+												},
+												{
+													"key": "tenant_id",
+													"value": "burulas"
+												}
+											],
+											"variable": [
+												{
+													"key": "stop_id",
+													"value": "string",
+													"description": "(Required) "
+												}
+											]
+										}
+									},
+									"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+									"code": 422,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    }\n  ]\n}"
+								}
+							]
+						},
+						{
+							"name": "Get Stop Next Arrivals",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/stops/:stop_id/next?count=10&route_id=string&tenant_id=burulas",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"stops",
+										":stop_id",
+										"next"
+									],
+									"query": [
+										{
+											"key": "count",
+											"value": "10",
+											"description": "Kaç tane sonraki varış"
+										},
+										{
+											"key": "route_id",
+											"value": "string",
+											"description": "Belirli hat için filtre"
+										},
+										{
+											"key": "tenant_id",
+											"value": "burulas"
+										}
+									],
+									"variable": [
+										{
+											"key": "stop_id",
+											"value": "string",
+											"description": "(Required) "
+										}
+									]
+								},
+								"description": "Şu andan (Europe/Istanbul) itibaren bu durağa gelecek ilk N varış.\n\n'Bir sonraki otobüs ne zaman?' sorusunun cevabı.\n\nMantık:\n  1. Yerel saati al → tarih + saat\n  2. O tarihte çalışan service_id'leri bul (calendars)\n  3. stop_times'ı: snapshot + stop + service + arrival_time >= now ile filtrele\n  4. arrival_time'a göre sırala, count kadar al\n\nNot: GTFS arrival_time 24:00:00'ı geçebilir (\"25:30:00\" = ertesi gün 01:30).\nŞu an gece 01:00 olduğunda dünün servisinden gelen \"25:00:00\" varışları\nda görmek isteyebiliriz — şimdilik bu uç durumu atlıyoruz, basit tutuyoruz."
+							},
+							"response": [
+								{
+									"name": "Successful Response",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/stops/:stop_id/next?count=10&route_id=string&tenant_id=burulas",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"stops",
+												":stop_id",
+												"next"
+											],
+											"query": [
+												{
+													"key": "count",
+													"value": "10"
+												},
+												{
+													"key": "route_id",
+													"value": "string"
+												},
+												{
+													"key": "tenant_id",
+													"value": "burulas"
+												}
+											],
+											"variable": [
+												{
+													"key": "stop_id",
+													"value": "string",
+													"description": "(Required) "
+												}
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"tenant_id\": \"string\",\n  \"snapshot_id\": 1078,\n  \"stop_id\": \"string\",\n  \"now_local\": \"string\",\n  \"date\": \"string\",\n  \"arrival_count\": 7228,\n  \"arrivals\": [\n    {\n      \"arrival_time\": \"string\",\n      \"trip_id\": \"string\",\n      \"route_id\": \"string\",\n      \"departure_time\": \"st\",\n      \"direction_id\": 1702,\n      \"trip_headsign\": \"string\",\n      \"service_id\": \"string\",\n      \"stop_sequence\": 8236\n    },\n    {\n      \"arrival_time\": \"string\",\n      \"trip_id\": \"string\",\n      \"route_id\": \"string\",\n      \"departure_time\": \"string\",\n      \"direction_id\": 4072,\n      \"trip_headsign\": \"string\",\n      \"service_id\": \"string\",\n      \"stop_sequence\": 5049\n    }\n  ],\n  \"stop_name\": \"string\",\n  \"stop_lat\": 6226.371255106919,\n  \"stop_lon\": 5600.396196233475,\n  \"weekday\": \"string\",\n  \"active_service_count\": 3165,\n  \"note\": \"string\"\n}"
+								},
+								{
+									"name": "Validation Error",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/stops/:stop_id/next?count=10&route_id=string&tenant_id=burulas",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"stops",
+												":stop_id",
+												"next"
+											],
+											"query": [
+												{
+													"key": "count",
+													"value": "10"
+												},
+												{
+													"key": "route_id",
+													"value": "string"
+												},
+												{
+													"key": "tenant_id",
+													"value": "burulas"
+												}
+											],
+											"variable": [
+												{
+													"key": "stop_id",
+													"value": "string",
+													"description": "(Required) "
+												}
+											]
+										}
+									},
+									"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+									"code": 422,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    }\n  ]\n}"
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "Get Stops Nearby",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"200 dönüyor\", () => pm.response.to.have.status(200));",
+									"pm.test(\"En az 1 durak\", () => {",
+									"    pm.expect(pm.response.json().stop_count).to.be.above(0);",
+									"});",
+									"pm.test(\"Mesafe artan sırada\", () => {",
+									"    const distances = pm.response.json().stops.map(s => s.distance_m);",
+									"    const sorted = [...distances].sort((a, b) => a - b);",
+									"    pm.expect(distances).to.eql(sorted);",
+									"});",
+									"pm.test(\"Yarıçap aşılmamış\", () => {",
+									"    pm.response.json().stops.forEach(s => {",
+									"        pm.expect(s.distance_m).to.be.at.most(500);",
+									"    });",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/stops/nearby?radius_m=500&lat=40.184&lon=29.061&limit=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"stops",
+								"nearby"
+							],
+							"query": [
+								{
+									"key": "radius_m",
+									"value": "500",
+									"description": "Arama yarıçapı (metre). Maks 10 km."
+								},
+								{
+									"key": "lat",
+									"value": "40.184"
+								},
+								{
+									"key": "lon",
+									"value": "29.061"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Verilen (lat, lon) noktasına `radius_m` metreden yakın durakları,\nen yakından uzağa sıralı olarak döndürür.\n\nMesafe Haversine formülü ile hesaplanır (Dünya = yaklaşık küre).\nHesabı Python'da değil DB'de yapıyoruz: PostgreSQL satır taraması\nsırasında mesafeyi zaten hesaplıyor, bir kez ek matematikle filtreyi\nde aynı pass'te bitiriyor — 9k duraklık aktif snapshot için anlık.\n\nFormül (R = Dünya yarıçapı, metre):\n    a = sin²(Δφ/2) + cos(φ1) · cos(φ2) · sin²(Δλ/2)\n    d = 2 · R · asin(√a)\n\nSQLAlchemy notu: hesaplanan distance_m'i hem ORDER BY hem WHERE'de\nkullanmak için iki yol var:\n  1) Aynı uzun ifadeyi iki yere de yazmak (DRY ihlali)\n  2) Subquery ile sarmak (önce hesapla, sonra dışta filtrele/sırala)\nİkincisini seçtik — okuması da PostgreSQL'in optimize etmesi de daha kolay.\n\nİleride performans: PostGIS + ST_DWithin/GiST index çok daha hızlı\nolur. 9k satır için şu an gereksiz."
+					},
+					"response": [
+						{
+							"name": "Successful Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/stops/nearby?lat=-32.63387934440365&lon=-46.040169173865905&radius_m=500&limit=20&tenant_id=burulas",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"stops",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lat",
+											"value": "-32.63387934440365"
+										},
+										{
+											"key": "lon",
+											"value": "-46.040169173865905"
+										},
+										{
+											"key": "radius_m",
+											"value": "500"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										},
+										{
+											"key": "tenant_id",
+											"value": "burulas"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"tenant_id\": \"string\",\n  \"snapshot_id\": 1447,\n  \"query\": {\n    \"lat\": 1342.4364040988435,\n    \"lon\": 4788.729401972167,\n    \"radius_m\": 6137,\n    \"limit\": 1686\n  },\n  \"stop_count\": 8738,\n  \"stops\": [\n    {\n      \"stop_id\": \"string\",\n      \"distance_m\": 5237.86418513682,\n      \"stop_name\": \"string\",\n      \"stop_lat\": 4916.305820885354,\n      \"stop_lon\": 5306.104920562424\n    },\n    {\n      \"stop_id\": \"string\",\n      \"distance_m\": 9097.884096914275,\n      \"stop_name\": \"string\",\n      \"stop_lat\": 6161.031837093667,\n      \"stop_lon\": 7625.970819668632\n    }\n  ]\n}"
+						},
+						{
+							"name": "Validation Error",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/stops/nearby?lat=-32.63387934440365&lon=-46.040169173865905&radius_m=500&limit=20&tenant_id=burulas",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"stops",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lat",
+											"value": "-32.63387934440365"
+										},
+										{
+											"key": "lon",
+											"value": "-46.040169173865905"
+										},
+										{
+											"key": "radius_m",
+											"value": "500"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										},
+										{
+											"key": "tenant_id",
+											"value": "burulas"
+										}
+									]
+								}
+							},
+							"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+							"code": 422,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Search Stops",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"200 dönüyor\", () => pm.response.to.have.status(200));",
+									"pm.test(\"15 numaralı hat var\", () => {",
+									"    const ids = pm.response.json().routes.map(r => r.route_id);",
+									"    pm.expect(ids).to.include(\"15\");",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/routes/search?q={{knownRoute}}&limit=5",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"routes",
+								"search"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "{{knownRoute}}"
+								},
+								{
+									"key": "limit",
+									"value": "5"
+								}
+							]
+						},
+						"description": "Durak adında veya stop_id'sinde geçen metni arar.\n\nKullanıcı \"fsm\", \"armutköy\", \"D13-136\" gibi şeyler arayabilir —\nhem stop_name'e hem stop_id'ye ILIKE ile bakıyoruz."
+					},
+					"response": [
+						{
+							"name": "Successful Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/stops/search?q=string&limit=20&tenant_id=burulas",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"stops",
+										"search"
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "string"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										},
+										{
+											"key": "tenant_id",
+											"value": "burulas"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"tenant_id\": \"string\",\n  \"snapshot_id\": 6220,\n  \"query\": {\n    \"q\": \"string\",\n    \"limit\": 6874\n  },\n  \"result_count\": 3821,\n  \"stops\": [\n    {\n      \"stop_id\": \"string\",\n      \"stop_name\": \"string\",\n      \"stop_lat\": 6548.581914879854,\n      \"stop_lon\": 2091.045992294942,\n      \"wheelchair_boarding\": 5873\n    },\n    {\n      \"stop_id\": \"string\",\n      \"stop_name\": \"string\",\n      \"stop_lat\": 9555.420893433966,\n      \"stop_lon\": 8659.791631604798,\n      \"wheelchair_boarding\": 4833\n    }\n  ]\n}"
+						},
+						{
+							"name": "Validation Error",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/stops/search?q=string&limit=20&tenant_id=burulas",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"stops",
+										"search"
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "string"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										},
+										{
+											"key": "tenant_id",
+											"value": "burulas"
+										}
+									]
+								}
+							},
+							"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+							"code": 422,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    }\n  ]\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Import Gtfs Endpoint",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "multipart/form-data"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"description": "(Required) ",
+							"type": "file",
+							"src": "/Users/btt/Desktop/parabol-project/burulas_2026-april.zip"
+						},
+						{
+							"key": "tenant_id",
+							"value": "burulas",
+							"description": "(Required) ",
+							"type": "text"
+						},
+						{
+							"key": "label",
+							"value": "burulas-2026-april-test",
+							"description": "(Required) ",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseUrl}}/import/",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"import",
+						""
+					]
+				},
+				"description": "GTFS zip dosyasını yükle ve DB'ye import et.\n\n- **file**: GTFS zip dosyası\n- **tenant_id**: Operatör kimliği (örn: burulas)\n- **label**: Import etiketi (örn: burulas-2026-nisan)"
+			},
+			"response": [
+				{
+					"name": "Successful Response",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"description": "(Required) ",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "tenant_id",
+									"value": "string",
+									"description": "(Required) ",
+									"type": "text"
+								},
+								{
+									"key": "label",
+									"value": "string",
+									"description": "(Required) ",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/import/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"import",
+								""
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{}"
+				},
+				{
+					"name": "Validation Error",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"description": "(Required) ",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "tenant_id",
+									"value": "string",
+									"description": "(Required) ",
+									"type": "text"
+								},
+								{
+									"key": "label",
+									"value": "string",
+									"description": "(Required) ",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/import/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"import",
+								""
+							]
+						}
+					},
+					"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+					"code": 422,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    }\n  ]\n}"
+				}
+			]
+		},
+		{
+			"name": "Get Trip Detail",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"200 dönüyor\", () => pm.response.to.have.status(200));",
+							"pm.test(\"Hat bilgisi dolu\", () => {",
+							"    pm.expect(pm.response.json().route_short_name).to.eql(\"15\");",
+							"});",
+							"pm.test(\"Duraklar sırayla\", () => {",
+							"    const seqs = pm.response.json().stops.map(s => s.sequence);",
+							"    pm.expect(seqs).to.eql(seqs.slice().sort((a, b) => a - b));",
+							"});",
+							"pm.test(\"start_time < end_time\", () => {",
+							"    const d = pm.response.json();",
+							"    pm.expect(d.start_time < d.end_time).to.be.true;",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/trips/15-2-32-06:25:00-1001",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"trips",
+						"15-2-32-06:25:00-1001"
+					]
+				},
+				"description": "Bir seferin tam detayını döndürür:\n  - Trip meta verisi (route_id, service_id, direction, headsign)\n  - Hat bilgisi (route_short_name, route_long_name)\n  - Sıralı durak listesi (her durakta arrival/departure_time)\n  - Türetilen alanlar:\n      * start_time = ilk durağın departure_time'ı\n      * end_time   = son durağın arrival_time'ı\n      * stop_count = toplam durak sayısı\n\n'Saat 08:15 kalkışlı 101 seferi nereden nereye gidiyor, hangi\nduraklardan geçiyor, kaç dakika sürüyor?' sorusunun cevabı."
+			},
+			"response": [
+				{
+					"name": "Successful Response",
+					"originalRequest": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/trips/:trip_id?tenant_id=burulas",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"trips",
+								":trip_id"
+							],
+							"query": [
+								{
+									"key": "tenant_id",
+									"value": "burulas"
+								}
+							],
+							"variable": [
+								{
+									"key": "trip_id",
+									"value": "string",
+									"description": "(Required) "
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"tenant_id\": \"string\",\n  \"snapshot_id\": 3006,\n  \"trip_id\": \"string\",\n  \"route_id\": \"string\",\n  \"stop_count\": 3296,\n  \"stops\": [\n    {\n      \"sequence\": 4726,\n      \"stop_id\": \"string\",\n      \"stop_name\": \"string\",\n      \"stop_lat\": 1384.05571179671,\n      \"stop_lon\": 4321.366545717277,\n      \"arrival_time\": \"string\",\n      \"departure_time\": \"string\",\n      \"pickup_type\": 6879,\n      \"drop_off_type\": 8156,\n      \"shape_dist_traveled\": 2891.8473270459244\n    },\n    {\n      \"sequence\": 392,\n      \"stop_id\": \"string\",\n      \"stop_name\": \"s\",\n      \"stop_lat\": 1742.7240300764813,\n      \"stop_lon\": 9887.144165312035,\n      \"arrival_time\": \"string\",\n      \"departure_time\": \"string\",\n      \"pickup_type\": 2867,\n      \"drop_off_type\": 6229,\n      \"shape_dist_traveled\": 4835.173980679857\n    }\n  ],\n  \"route_short_name\": \"string\",\n  \"route_long_name\": \"string\",\n  \"service_id\": \"string\",\n  \"direction_id\": 9467,\n  \"shape_id\": \"string\",\n  \"trip_headsign\": \"string\",\n  \"wheelchair_accessible\": 9807,\n  \"bikes_allowed\": 6651,\n  \"start_time\": \"string\",\n  \"end_time\": \"string\"\n}"
+				},
+				{
+					"name": "Validation Error",
+					"originalRequest": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/trips/:trip_id?tenant_id=burulas",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"trips",
+								":trip_id"
+							],
+							"query": [
+								{
+									"key": "tenant_id",
+									"value": "burulas"
+								}
+							],
+							"variable": [
+								{
+									"key": "trip_id",
+									"value": "string",
+									"description": "(Required) "
+								}
+							]
+						}
+					},
+					"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+					"code": 422,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\"\n    }\n  ]\n}"
+				}
+			]
+		},
+		{
+			"name": "Health",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"200 dönüyor\", () => pm.response.to.have.status(200));",
+							"pm.test(\"Status ok\", () => {",
+							"    pm.expect(pm.response.json().status).to.eql(\"ok\");",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/health",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "Successful Response",
+					"originalRequest": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{}"
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "/",
+			"type": "string"
+		}
+	]
+}
