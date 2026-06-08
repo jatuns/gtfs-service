@@ -143,12 +143,23 @@ GTFS mikroservis temel hâli production-ready:
 - Composite index'ler ile sub-ms sorgular
 - Leaflet ile interaktif harita demo
 
+### Adım 13 — CI Fixture Seed ✅
+- `tests/fixtures/mini_gtfs/` — küçük sentetik GTFS feed (5 KB zip)
+  - 6 hat, 11 durak, 13 sefer, 40 stop_time
+  - D0052 (ULUCAMI), Route 15 (iki yön), D13-136-S (orphan) — testlerin
+    beklediği "altın" ID'lerle uyumlu
+- `tests/conftest.py` `ensure_test_data` session autouse fixture'ı:
+  - Lokalde Burulas snapshot'ı varsa → hiçbir şey yapmaz
+  - CI'da boş DB ile başladığında → fixture'ı sıkıştırıp import eder
+- CI workflow tam `pytest` koşturuyor (40 test)
+- Lokal geliştirici akışı **bozulmadı**: senin Burulas veri varsa o kullanılır
+
 ### İleride yapılabilir
-- CI'da sentetik fixture GTFS → tüm 40 test otomatik koşsun
 - pg_trgm GIN index ile ILIKE araması daha hızlı
 - Snapshot yönetimi (list/activate/delete) — Mayıs verisi gelince
 - PostGIS + ST_DWithin ile nearby sub-millisaniye
 - Rate limiting + API key (prod için)
+- GTFS-Realtime feed (otobüsün şu anki konumu)
 
 ## API'yi Hızlıca Test Et
 

@@ -60,12 +60,13 @@ jobs:
           DATABASE_URL: postgresql://gtfs_user:gtfs_pass@localhost:5432/gtfs_db
         run: python -c "from app.main import app; print('app loaded:', app.title)"
 
-      # 3) Veri gerektirmeyen testler.
-      #    test_health.py'nin DB'ye dokunması yok → CI'da güvenle koşar.
-      #    Burulas verisine bağımlı testler ise lokal geliştirici makinesinde
-      #    pytest ile koşulur. Sonraki adımda fixture GTFS ekleyip CI'da
-      #    tam test setini açacağız.
-      - name: Smoke tests (data-independent)
+      # 3) Tüm test seti.
+      #    tests/conftest.py'deki ensure_test_data() session-fixture'ı,
+      #    aktif Burulas snapshot'ı yoksa tests/fixtures/mini_gtfs/'i
+      #    otomatik import eder. CI'da DB boş olduğu için fixture devreye
+      #    girer → 40 testin tamamı geçer.
+      #    Lokalde Burulas verisi varsa fixture devre dışı kalır.
+      - name: All tests (with auto-fixture)
         env:
           DATABASE_URL: postgresql://gtfs_user:gtfs_pass@localhost:5432/gtfs_db
-        run: pytest tests/test_health.py -v
+        run: pytest
