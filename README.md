@@ -150,6 +150,24 @@ GTFS mikroservis temel hâli production-ready:
 - PostGIS + ST_DWithin ile nearby sub-millisaniye
 - Rate limiting + API key (prod için)
 
+## Kurulum — İki Yol
+
+### Yol 1: venv (saf Python, hızlı)
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+### Yol 2: conda (scientific paketler, ileride PostGIS/ML için)
+```bash
+conda env create -f environment.yml
+conda activate gtfs
+```
+
+İkisi de aynı testleri geçirir. Geçerli durum saf Python olduğundan venv yeterli;
+geospatial/ML paketler eklendiğinde conda öne çıkar.
+
 ## Teknik Notlar
 - Python 3.14 — psycopg[binary]==3.3.4 kullanılıyor (psycopg2 desteklemiyor)
 - DB portu 5433 (5432 Mac'te dolu)

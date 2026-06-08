@@ -1,0 +1,40 @@
+# Conda ortam tanımı — venv'e alternatif kurulum yolu
+# ----------------------------------------------------
+# Kim kullanır:
+#   - conda-forge'tan gelen scientific paketleri tercih edenler
+#   - İleride PostGIS / GeoPandas / scikit-learn eklendiğinde
+#     C bağımlılıkları için
+#   - Veri/ML ekipleri için ortak ortam
+#
+# Kullanım:
+#   conda env create -f environment.yml
+#   conda activate gtfs
+#   pytest
+#
+# Mevcut bağımlılıklarımız saf Python olduğu için venv ile de çalışır.
+# Bu dosya alternatif yol — Çağdaş'ın da tavsiyesiyle altyapı hazır.
+
+name: gtfs
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Python sürümü 3.12 — conda-forge'da en stable olan, CI ile uyumlu
+  # Yerel venv'de 3.14 kullanıyoruz; conda'da 3.12 ile paralel test
+  - python=3.12
+  - pip
+
+  # Geri kalan Python paketleri pip ile — requirements-dev.txt
+  # tek doğruluk kaynağı, conda ile pip arası karışıklık önlenir.
+  - pip:
+    - -r requirements-dev.txt
+
+# İleride PostGIS / GeoPandas eklersek aşağıdaki gibi conda-forge'tan çekeriz:
+#   - geopandas
+#   - postgis
+#   - psycopg-binary
+#   - jupyter
+#   - scikit-learn
+# Bunlar conda-forge'da derlenmiş halde gelir → pip'in çıldırması yok.
