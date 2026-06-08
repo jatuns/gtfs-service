@@ -150,6 +150,20 @@ GTFS mikroservis temel hâli production-ready:
 - PostGIS + ST_DWithin ile nearby sub-millisaniye
 - Rate limiting + API key (prod için)
 
+## API'yi Hızlıca Test Et
+
+### Swagger UI
+http://localhost:8000/docs — tarayıcıdan endpoint'leri keşfet ve dene.
+
+### Postman Collection
+Hazır bir Postman koleksiyonu (8 endpoint + 15+ assertion + `local` environment):
+
+🔗 **[Postman'de aç](https://baris-s-team-2.postman.co/workspace/Team-Workspace~9c8f783f-8057-45ff-8ac3-9bc933b9dbe4/collection/47917517-f489af6d-cd52-42fd-a103-0f99e8226ea7?action=share&source=copy-link&creator=47917517)**
+
+Kullanım: Linke tıkla → "Fork this collection" → kendi workspace'ine kopya al →
+sağ üst dropdown'dan `local` environment'ı seç → istekleri **Send** ile koş.
+**Runner** ile collection'ın tamamını tek tıkla smoke-test edebilirsin.
+
 ## Kurulum — İki Yol
 
 ### Yol 1: venv (saf Python, hızlı)
