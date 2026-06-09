@@ -154,7 +154,14 @@ def _now_local() -> datetime:
 # ─────────────────────────────────────────
 # GET /routes/{route_id}/stops
 # ─────────────────────────────────────────
-@router.get("/routes/{route_id}/stops", response_model=RouteStopsResponse)
+@router.get(
+    "/routes/{route_id}/stops",
+    response_model=RouteStopsResponse,
+    summary="Hattın sıralı durakları",
+    responses={
+        404: {"description": "Belirtilen route_id bulunamadı"},
+    },
+)
 def get_route_stops(
     route_id: str,
     direction_id: int | None = Query(
@@ -249,7 +256,14 @@ def get_route_stops(
 # ─────────────────────────────────────────
 # GET /routes/{route_id}/trips
 # ─────────────────────────────────────────
-@router.get("/routes/{route_id}/trips", response_model=RouteTripsResponse)
+@router.get(
+    "/routes/{route_id}/trips",
+    response_model=RouteTripsResponse,
+    summary="Hattın seferleri (kalkış saatine göre)",
+    responses={
+        400: {"description": "Geçersiz date formatı (YYYY-MM-DD bekleniyor)"},
+    },
+)
 def get_route_trips(
     route_id: str,
     direction_id: int | None = Query(None, description="0=gidiş, 1=dönüş"),
@@ -359,7 +373,15 @@ def get_route_trips(
 # ─────────────────────────────────────────
 # GET /stops/{stop_id}/arrivals
 # ─────────────────────────────────────────
-@router.get("/stops/{stop_id}/arrivals", response_model=StopArrivalsResponse)
+@router.get(
+    "/stops/{stop_id}/arrivals",
+    response_model=StopArrivalsResponse,
+    summary="Bir durağa varış saatleri",
+    responses={
+        404: {"description": "Belirtilen stop_id bulunamadı"},
+        400: {"description": "Geçersiz date formatı"},
+    },
+)
 def get_stop_arrivals(
     stop_id: str,
     from_time: str | None = Query(
@@ -499,7 +521,14 @@ def get_stop_arrivals(
 # GET /stops/{stop_id}/next
 # Pratik kısa yol: "şu andan itibaren ilk N varış, bugün"
 # ─────────────────────────────────────────
-@router.get("/stops/{stop_id}/next", response_model=StopNextResponse)
+@router.get(
+    "/stops/{stop_id}/next",
+    response_model=StopNextResponse,
+    summary="Şu andan sonraki ilk N varış",
+    responses={
+        404: {"description": "Belirtilen stop_id bulunamadı"},
+    },
+)
 def get_stop_next_arrivals(
     stop_id: str,
     count: int = Query(10, ge=1, le=50, description="Kaç tane sonraki varış"),
@@ -610,7 +639,14 @@ def get_stop_next_arrivals(
 # GET /stops/nearby
 # Bir noktaya yakın durakları, mesafeyle birlikte döner.
 # ─────────────────────────────────────────
-@router.get("/stops/nearby", response_model=StopsNearbyResponse)
+@router.get(
+    "/stops/nearby",
+    response_model=StopsNearbyResponse,
+    summary="Koordinata yakın duraklar (Haversine)",
+    responses={
+        422: {"description": "Geçersiz lat/lon/radius_m değeri"},
+    },
+)
 def get_stops_nearby(
     lat: float = Query(..., ge=-90, le=90, description="Enlem (derece)"),
     lon: float = Query(..., ge=-180, le=180, description="Boylam (derece)"),
@@ -719,7 +755,11 @@ def get_stops_nearby(
 # GET /routes/search
 # Hat adı / numarası ile arama (ILIKE %q%).
 # ─────────────────────────────────────────
-@router.get("/routes/search", response_model=RouteSearchResponse)
+@router.get(
+    "/routes/search",
+    response_model=RouteSearchResponse,
+    summary="Hat adı/numarası ile arama (ILIKE)",
+)
 def search_routes(
     q: str = Query(..., min_length=1, max_length=64, description="Arama metni"),
     limit: int = Query(20, ge=1, le=100),
@@ -784,7 +824,11 @@ def search_routes(
 # GET /stops/search
 # Durak adı ile arama.
 # ─────────────────────────────────────────
-@router.get("/stops/search", response_model=StopSearchResponse)
+@router.get(
+    "/stops/search",
+    response_model=StopSearchResponse,
+    summary="Durak adı/stop_id ile arama (ILIKE)",
+)
 def search_stops(
     q: str = Query(..., min_length=1, max_length=64, description="Arama metni"),
     limit: int = Query(20, ge=1, le=100),
@@ -842,7 +886,14 @@ def search_stops(
 # GET /trips/{trip_id}
 # Tek seferin tam detayı: trip + route + sıralı duraklar + saatler
 # ─────────────────────────────────────────
-@router.get("/trips/{trip_id}", response_model=TripDetailResponse)
+@router.get(
+    "/trips/{trip_id}",
+    response_model=TripDetailResponse,
+    summary="Bir seferin tam detayı (route + sıralı duraklar + saatler)",
+    responses={
+        404: {"description": "Belirtilen trip_id bulunamadı"},
+    },
+)
 def get_trip_detail(
     trip_id: str,
     tenant_id: str = Query("burulas"),
@@ -956,7 +1007,14 @@ def get_trip_detail(
 # GET /journey
 # v2: Doğrudan + 1 aktarmalı yolculuk planlama
 # ─────────────────────────────────────────
-@router.get("/journey", response_model=JourneyResponse)
+@router.get(
+    "/journey",
+    response_model=JourneyResponse,
+    summary="Yolculuk planı (X → Y, direct + 1-aktarmalı)",
+    responses={
+        400: {"description": "Geçersiz date formatı"},
+    },
+)
 def plan_journey(
     from_stop: str = Query(..., description="Biniş durağı stop_id"),
     to_stop: str = Query(..., description="İniş durağı stop_id"),

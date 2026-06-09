@@ -29,6 +29,12 @@ router = APIRouter(prefix="/import", tags=["Import"])
 @router.post(
     "/",
     dependencies=[Depends(verify_api_key)],
+    summary="GTFS zip dosyasını içe aktar (🔒 admin)",
+    responses={
+        401: {"description": "X-API-Key eksik veya yanlış"},
+        400: {"description": "Yüklenen dosya .zip değil"},
+        500: {"description": "Parser hatası (zip bozuk veya GTFS şeması eksik)"},
+    },
 )
 async def import_gtfs_endpoint(
     file: UploadFile = File(...),        # zip dosyası

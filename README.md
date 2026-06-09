@@ -4,6 +4,94 @@
 
 FastAPI + PostgreSQL + SQLAlchemy ile yazılmış GTFS veri servisi.
 
+## Mimari
+
+Bir HTTP isteğinin uygulamadaki yolculuğu:
+
+```mermaid
+flowchart TB
+    Client["🌐 Client<br/>(Tarayıcı / curl / Postman)"]
+
+    subgraph Middleware["Middleware Katmanı (sıra: dış → iç)"]
+        direction TB
+        Log["📝 RequestLoggingMiddleware<br/>JSON log → stdout"]
+        Rate["⏱️ RateLimitMiddleware<br/>IP başına dk/N istek"]
+        CORS["🔓 CORSMiddleware<br/>Origin kontrolü"]
+        Log --> Rate --> CORS
+    end
+
+    subgraph Routers["Router Katmanı"]
+        direction LR
+        Query["query_router<br/>8 sorgu endpoint'i"]
+        Import["import_router<br/>POST /import/<br/>🔒 API Key korumalı"]
+    end
+
+    subgraph Deps["Dependencies (FastAPI)"]
+        direction LR
+        GetDB["get_db()<br/>DB session generator"]
+        Auth["verify_api_key()<br/>X-API-Key kontrolü"]
+    end
+
+    subgraph Services["Service Katmanı (saf iş mantığı)"]
+        direction LR
+        Parser["gtfs_parser<br/>zip → bulk insert"]
+        Journey["journey_planner<br/>direct + 1-transfer"]
+    end
+
+    subgraph Models["Model Katmanı (SQLAlchemy ORM)"]
+        direction LR
+        M1["Snapshot · Agency<br/>Route · Stop"]
+        M2["Calendar · CalendarDate<br/>Trip · StopTime · Shape"]
+    end
+
+    DB[("🐘 PostgreSQL 16<br/>9 tablo · composite index'ler")]
+
+    Client -->|HTTP| Middleware
+    CORS --> Routers
+    Routers -.->|Depends| Deps
+    Routers --> Services
+    Services --> Models
+    Models -->|SQL| DB
+
+    classDef mw fill:#1e3a8a,stroke:#3b82f6,color:#fff
+    classDef router fill:#065f46,stroke:#10b981,color:#fff
+    classDef svc fill:#7c2d12,stroke:#f97316,color:#fff
+    classDef model fill:#581c87,stroke:#a855f7,color:#fff
+    classDef db fill:#7f1d1d,stroke:#ef4444,color:#fff
+
+    class Log,Rate,CORS mw
+    class Query,Import router
+    class Parser,Journey svc
+    class M1,M2 model
+    class DB db
+```
+
+### Klasör yapısı
+
+```
+app/
+├── main.py              # FastAPI app + lifespan + middleware bağlama
+├── database.py          # engine, SessionLocal, get_db, Base
+├── models/gtfs.py       # 9 SQLAlchemy modeli (snapshot/route/stop/...)
+├── schemas/query.py     # 25+ Pydantic response/request modeli
+├── routers/
+│   ├── import_router.py # POST /import/ (API key korumalı)
+│   └── query_router.py  # 8 sorgu endpoint'i + /journey
+├── services/
+│   ├── gtfs_parser.py   # zip → DB import mantığı
+│   └── journey_planner.py # X→Y yolculuk algoritması (direct + transfer)
+├── security/
+│   ├── api_key.py       # verify_api_key dependency
+│   ├── rate_limit.py    # IP başına sliding window
+│   └── logging.py       # JSON istek loglama middleware'i
+└── static/demo.html     # Leaflet harita demosu
+
+tests/
+├── conftest.py          # fixture'lar + auto-fixture mini_gtfs yükleme
+├── test_*.py            # 64 test
+└── fixtures/mini_gtfs/  # Sentetik test verisi (CI için)
+```
+
 ## Tamamlanan Adımlar
 
 ### Adım 1 — Proje İskeleti ✅

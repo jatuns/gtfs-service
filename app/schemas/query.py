@@ -23,7 +23,7 @@ Tasarım kararları:
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ─────────────────────────────────────────
@@ -156,6 +156,47 @@ class StopArrivalsResponse(TenantEnvelope):
     filters: ArrivalFilters
     arrival_count: int
     arrivals: list[ArrivalEntry]
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "tenant_id": "burulas",
+            "snapshot_id": 1,
+            "stop_id": "D0052",
+            "stop_name": "ULUCAMI",
+            "stop_lat": 40.18351,
+            "stop_lon": 29.06127,
+            "filters": {
+                "from_time": "08:00:00",
+                "to_time": "09:00:00",
+                "date": "2026-04-15",
+                "route_id": None,
+                "limit": 100,
+            },
+            "arrival_count": 2,
+            "arrivals": [
+                {
+                    "arrival_time": "08:00:40",
+                    "departure_time": "08:00:40",
+                    "trip_id": "4A-2-63-07:30:00-1119",
+                    "route_id": "4A",
+                    "direction_id": 0,
+                    "trip_headsign": "4A - Uludag Yolu - Ring",
+                    "service_id": "63",
+                    "stop_sequence": 34,
+                },
+                {
+                    "arrival_time": "08:05:13",
+                    "departure_time": "08:05:13",
+                    "trip_id": "B38-0-31-07:47:00-1173",
+                    "route_id": "B38",
+                    "direction_id": 0,
+                    "trip_headsign": "B38 - Acemler istasyonu -Teferruc",
+                    "service_id": "31",
+                    "stop_sequence": 16,
+                },
+            ],
+        }
+    })
 
 
 # ─────────────────────────────────────────
@@ -303,3 +344,49 @@ class JourneyResponse(TenantEnvelope):
                     "arrival_time → transfer_count → duration sıralı",
     )
     note: Optional[str] = None
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "tenant_id": "burulas",
+            "snapshot_id": 1,
+            "query": {
+                "from_stop": "D1402",
+                "to_stop": "D0052",
+                "from_time": "08:00:00",
+                "date": "2026-04-15",
+                "max_transfers": 1,
+                "min_transfer_seconds": 120,
+                "limit": 5,
+            },
+            "weekday": "wednesday",
+            "active_service_count": 12,
+            "journey_count": 1,
+            "journeys": [
+                {
+                    "transfer_count": 0,
+                    "departure_time": "08:00:00",
+                    "arrival_time": "08:25:00",
+                    "total_duration_seconds": 1500,
+                    "legs": [
+                        {
+                            "trip_id": "15-0-WEEKDAY-08:00-1001",
+                            "route_id": "15",
+                            "route_short_name": "15",
+                            "trip_headsign": "15 - Armutkoy Mh. - Ring",
+                            "from_stop_id": "D1402",
+                            "from_stop_name": "ARMUTKOY MEYDANI 1",
+                            "from_stop_sequence": 1,
+                            "departure_time": "08:00:00",
+                            "to_stop_id": "D0052",
+                            "to_stop_name": "ULUCAMI",
+                            "to_stop_sequence": 5,
+                            "arrival_time": "08:25:00",
+                            "intermediate_stop_count": 3,
+                            "duration_seconds": 1500,
+                        }
+                    ],
+                }
+            ],
+            "note": None,
+        }
+    })

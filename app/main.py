@@ -86,6 +86,15 @@ def demo():
     return FileResponse(_STATIC_DIR / "demo.html")
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    summary="Liveness probe",
+    tags=["Health"],
+)
 def health():
+    """Load balancer'lar ve uptime monitor'lar için sade sağlık kontrolü.
+
+    Bu endpoint **rate-limit'ten muaftır**. DB'ye dokunmaz; sadece sürecin
+    HTTP isteklere cevap verebildiğini doğrular.
+    """
     return {"status": "ok"}
