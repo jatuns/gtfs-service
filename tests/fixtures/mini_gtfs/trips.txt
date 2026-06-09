@@ -1,5 +1,5 @@
 trip_id,route_id,service_id,direction_id,shape_id,trip_headsign,wheelchair_accessible,bikes_allowed
-15-0-WEEKDAY-06:25-1001,15,WEEKDAY,0,1001,15 - Armutkoy Mh. - Ring,0,0
+15-2-32-06:25:00-1001,15,WEEKDAY,0,1001,15 - Armutkoy Mh. - Ring,0,0
 15-0-WEEKDAY-07:30-1001,15,WEEKDAY,0,1001,15 - Armutkoy Mh. - Ring,0,0
 15-1-WEEKDAY-06:53-2002,15,WEEKDAY,1,2002,15 - Timurtaspasa - Armutkoy,0,0
 15-1-WEEKDAY-08:00-2002,15,WEEKDAY,1,2002,15 - Timurtaspasa - Armutkoy,0,0
