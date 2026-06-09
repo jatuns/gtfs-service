@@ -15,7 +15,7 @@ Akış:
 import os
 import zipfile
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -84,7 +84,7 @@ def _create_snapshot(db: Session, tenant_id: str, label: str) -> GtfsSnapshot:
     snapshot = GtfsSnapshot(
         tenant_id=tenant_id,
         label=label,
-        imported_at=datetime.utcnow().isoformat(),
+        imported_at=datetime.now(timezone.utc).isoformat(),
         is_active=False   # henüz aktif değil
     )
     db.add(snapshot)
