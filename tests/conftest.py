@@ -19,17 +19,28 @@ Veri kaynağı (otomatik tespit):
   pytest -v
 """
 
+import os
 import tempfile
 import zipfile
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app.database import Base, SessionLocal, engine
-from app.main import app
-from app.models.gtfs import GtfsSnapshot
-from app.services.gtfs_parser import import_gtfs
+# Testler başlamadan ÖNCE env'i kur — app import edilince
+# bazı modüller env'i bir kere okur (rate_limit dakikalık limiti vs.)
+os.environ.setdefault("ADMIN_API_KEYS", "test-admin-key,another-test-key")
+# Testlerde rate limit devre dışı (yüzlerce assert ile patlatmasın)
+os.environ.setdefault("RATE_LIMIT_PER_MINUTE", "0")
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.database import Base, SessionLocal, engine  # noqa: E402
+from app.main import app  # noqa: E402
+from app.models.gtfs import GtfsSnapshot  # noqa: E402
+from app.services.gtfs_parser import import_gtfs  # noqa: E402
+
+# Testlerde kullanılacak default API key — test_security için header'da gönderilir
+TEST_ADMIN_API_KEY = "test-admin-key"
 
 
 TENANT_ID = "burulas"

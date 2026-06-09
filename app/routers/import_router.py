@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.security.api_key import verify_api_key
 from app.services.gtfs_parser import import_gtfs
 
 # APIRouter → endpoint'leri gruplamak için
@@ -25,7 +26,10 @@ from app.services.gtfs_parser import import_gtfs
 router = APIRouter(prefix="/import", tags=["Import"])
 
 
-@router.post("/")
+@router.post(
+    "/",
+    dependencies=[Depends(verify_api_key)],
+)
 async def import_gtfs_endpoint(
     file: UploadFile = File(...),        # zip dosyası
     tenant_id: str   = Form(...),        # "burulas", "eshot" vs.

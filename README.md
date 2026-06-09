@@ -143,6 +143,28 @@ GTFS mikroservis temel hâli production-ready:
 - Composite index'ler ile sub-ms sorgular
 - Leaflet ile interaktif harita demo
 
+### Adım 16 — API Güvenlik Katmanı ✅
+Yeni paket: `app/security/`
+- `api_key.py` — `verify_api_key` dependency
+  - `X-API-Key` header zorunlu (Swagger'da Authorize butonu görünür)
+  - `.env`'deki `ADMIN_API_KEYS` virgülle ayrılır (çoklu key)
+  - Server'da hiç key yoksa 503 (kasıtlı: konfig hatası, auth hatası değil)
+- `rate_limit.py` — `RateLimitMiddleware`
+  - IP başına sliding-window 60 sn limit
+  - `X-Forwarded-For` desteği (reverse proxy arkasında doğru IP)
+  - `/health`, `/docs`, `/openapi.json` muaf
+  - `RATE_LIMIT_PER_MINUTE=0` → devre dışı
+- `logging.py` — `RequestLoggingMiddleware`
+  - Her isteği JSON formatında stdout'a (Datadog/Loki uyumlu)
+  - API key'in son 4 hanesi loglanır, tam key asla
+- CORS — FastAPI'nin `CORSMiddleware` ile, `CORS_ORIGINS` env'den
+
+Korunan endpoint'ler:
+- `POST /import/` → `Depends(verify_api_key)` ile
+
+Test: 64/64 yeşil (11 yeni güvenlik testi). Decorator/dependency
+pattern'inin pratik uygulaması — endpoint kodu auth'tan habersiz kalır.
+
 ### Adım 15 — Yolculuk Planlama v2 (1 aktarmalı) ✅
 - `journey_planner.py` genişletildi:
   - `Journey` veri tipi (legs[], transfer_count, total_duration)
