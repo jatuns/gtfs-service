@@ -231,6 +231,19 @@ GTFS mikroservis temel hâli production-ready:
 - Composite index'ler ile sub-ms sorgular
 - Leaflet ile interaktif harita demo
 
+### Adım 17 — Newman CI (Postman API kontratı CI'da) ✅
+- Postman koleksiyonu artık CI'da **Newman** ile otomatik koşar
+- Akış (her push'ta):
+  1. Postgres servisi → boş DB
+  2. pytest → mini_gtfs yüklenir, 64 test geçer (DB'de veri kalır)
+  3. uvicorn arka planda başlatılır
+  4. `/health` 200 dönmesi beklenir (timeout 30 sn)
+  5. Newman: `docs/postman_collection.json` + `docs/postman_environment.json`
+  6. 32 assertion + 12 request kontrol edilir
+  7. JSON raporu `newman-report.json` artifact olarak yüklenir
+- **Çift katmanlı koruma**: pytest **iç mantığı**, Newman **API kontratını**
+  doğrular. Cevap formatı değişirse Newman yakalar, iç bug pytest yakalar.
+
 ### Adım 16 — API Güvenlik Katmanı ✅
 Yeni paket: `app/security/`
 - `api_key.py` — `verify_api_key` dependency

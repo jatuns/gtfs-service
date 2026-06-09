@@ -11,7 +11,7 @@ on:
 
 jobs:
   test:
-    name: Lint & smoke tests
+    name: Pytest + Newman (API contract)
     runs-on: ubuntu-latest
 
     # PostgreSQL servisi — GitHub Actions, Docker konteyneri olarak
@@ -64,9 +64,73 @@ jobs:
       #    tests/conftest.py'deki ensure_test_data() session-fixture'ı,
       #    aktif Burulas snapshot'ı yoksa tests/fixtures/mini_gtfs/'i
       #    otomatik import eder. CI'da DB boş olduğu için fixture devreye
-      #    girer → 40 testin tamamı geçer.
-      #    Lokalde Burulas verisi varsa fixture devre dışı kalır.
-      - name: All tests (with auto-fixture)
+      #    girer → 64 testin tamamı geçer. Veriler DB'de KALIR — sonraki
+      #    Newman adımı bunları kullanacak.
+      - name: Pytest (with auto-fixture)
         env:
           DATABASE_URL: postgresql://gtfs_user:gtfs_pass@localhost:5432/gtfs_db
+          ADMIN_API_KEYS: ci-admin-key
+          RATE_LIMIT_PER_MINUTE: "0"
         run: pytest
+
+      # 4) Node.js (Newman için)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      # 5) Uvicorn'u arka planda başlat — Newman buna karşı istek atacak
+      #    Pytest fixture'ı zaten mini_gtfs verisini DB'ye yükledi.
+      - name: Start uvicorn
+        env:
+          DATABASE_URL: postgresql://gtfs_user:gtfs_pass@localhost:5432/gtfs_db
+          ADMIN_API_KEYS: ci-admin-key
+          RATE_LIMIT_PER_MINUTE: "0"
+        run: |
+          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 \
+            > uvicorn.log 2>&1 &
+          echo $! > uvicorn.pid
+
+      - name: Wait for /health
+        run: |
+          for i in {1..30}; do
+            if curl -fs http://localhost:8000/health > /dev/null; then
+              echo "Uvicorn hazır (${i}. denemede)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Uvicorn başlamadı — log:"
+          cat uvicorn.log
+          exit 1
+
+      # 6) Newman ile Postman koleksiyonunu koştur
+      #    32 assertion, ~1 saniye. Pytest'in yakalayamadığı API kontrat
+      #    bozulmalarını yakalar (yanıt yapısı, header'lar, status code'lar).
+      - name: Newman (Postman collection)
+        run: |
+          newman run docs/postman_collection.json \
+            -e docs/postman_environment.json \
+            --color off \
+            --reporters cli,json \
+            --reporter-json-export newman-report.json
+
+      # 7) Newman raporunu artifact olarak kaydet (debugging için)
+      - name: Upload Newman report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report
+          path: newman-report.json
+          retention-days: 7
+
+      # 8) Uvicorn'u kapat (kaynak temizliği)
+      - name: Stop uvicorn
+        if: always()
+        run: |
+          if [ -f uvicorn.pid ]; then
+            kill $(cat uvicorn.pid) 2>/dev/null || true
+          fi
