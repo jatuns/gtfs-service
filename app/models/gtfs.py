@@ -17,11 +17,22 @@ Neden tenant_id var?
   Her sorgu tenant_id ile filtrelenir.
 """
 
+from geoalchemy2 import Geography
 from sqlalchemy import (
     Column, String, Integer, Float,
-    Boolean, Date, Time, ForeignKey, Index
+    Boolean, Date, Time, ForeignKey, Index,
+    DDL, event,
 )
 from app.database import Base
+
+# Geography kolonu (Stop.geom) PostGIS extension'ı gerektirir.
+# Bu listener sayesinde Base.metadata.create_all() NEREDE çağrılırsa
+# çağrılsın (lifespan, conftest, script) önce extension kurulur.
+# IF NOT EXISTS → idempotent, her başlangıçta güvenle koşar.
+event.listen(
+    Base.metadata, "before_create",
+    DDL("CREATE EXTENSION IF NOT EXISTS postgis"),
+)
 
 
 # ─────────────────────────────────────────
@@ -100,6 +111,17 @@ class Stop(Base):
     stop_lon            = Column(Float)
     wheelchair_boarding = Column(Integer, default=0)
     location_type       = Column(Integer, default=0)
+
+    # PostGIS Geography noktası — lat/lon'dan türetilir (parser dolduruyor).
+    # Neden Geography (Geometry değil)?
+    #   ST_DWithin(geography, geography, x) → x METRE cinsinden ve GiST
+    #   index'i doğrudan kullanır. Geometry'de derece cinsinden çalışır,
+    #   metre için ::geography cast gerekir, cast de index'i devre dışı bırakır.
+    # spatial_index=True → create_all yeni tabloda GiST index'i otomatik kurar.
+    geom                = Column(
+        Geography(geometry_type="POINT", srid=4326, spatial_index=True),
+        nullable=True,
+    )
 
     __table_args__ = (
         Index("ix_stops_snapshot_stop", "snapshot_id", "stop_id"),

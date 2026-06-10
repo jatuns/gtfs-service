@@ -18,6 +18,7 @@ import tempfile
 from datetime import datetime, timezone
 
 import pandas as pd
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.gtfs import (
@@ -190,7 +191,23 @@ def _import_stops(tmp_dir: str, snapshot: GtfsSnapshot, db: Session):
 
     records = df.to_dict(orient="records")
     _bulk_insert(db, Stop, records)
-    print(f"  ✔ stops: {len(records)} kayıt")
+
+    # PostGIS geom kolonunu doldur.
+    # Bulk insert sırasında ST_MakePoint çağırmak zor (mappings düz değer
+    # bekler) — bunun yerine insert sonrası tek UPDATE: basit ve hızlı.
+    # NOT: ST_MakePoint(lon, lat) — sıra x=boylam, y=enlem! Karıştırma.
+    db.execute(text("""
+        UPDATE stops
+        SET geom = ST_SetSRID(
+            ST_MakePoint(stop_lon, stop_lat), 4326
+        )::geography
+        WHERE snapshot_id = :sid
+          AND stop_lat IS NOT NULL
+          AND stop_lon IS NOT NULL
+    """), {"sid": snapshot.id})
+    db.commit()
+
+    print(f"  ✔ stops: {len(records)} kayıt (geom dolduruldu)")
 
 
 # ─────────────────────────────────────────

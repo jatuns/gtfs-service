@@ -39,6 +39,10 @@ CREATE INDEX IF NOT EXISTS ix_routes_short_name
 CREATE INDEX IF NOT EXISTS ix_calendar_dates_snapshot_date
   ON calendar_dates (snapshot_id, date);
 
+-- /stops/nearby (PostGIS ST_DWithin) için GiST index
+-- Asıl migration scripts/migrate_postgis.sql'de; burada da idempotent dursun.
+CREATE INDEX IF NOT EXISTS idx_stops_geom ON stops USING GIST (geom);
+
 -- Kontrol: index'ler oluştu mu?
 \echo
 \echo '─── stop_times index listesi ───'

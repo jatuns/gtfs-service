@@ -3,12 +3,13 @@
 > Bu dosya proje devam ederken hangi adımda kaldığımızı tutar.
 > Yeni bir sohbet/session açtığında bunu okumak yeterli.
 
-## Şu anki durum (commit `60b825e` + Newman fix)
+## Şu anki durum (PostGIS migration sonrası)
 
-✅ **21 commit, CI yeşil** (~1m 5s):
+✅ **30 commit, CI yeşil**:
 - 64 pytest + 32 Newman assertion otomatik koşuyor
 - Pytest iç mantığı, Newman API kontratını doğrular
 - Mini_gtfs fixture Burulas trip_id'leri ile hizalı (`15-2-32-06:25:00-1001`)
+- PostGIS aktif: Stop.geom (geography), GiST index, ST_DWithin nearby
 
 ### Repo özet
 
@@ -61,31 +62,18 @@ GET  /demo                             Leaflet harita
 
 Sırayı bozarsak **geri dönüş + rework** olur. Sebepler önceki sohbette tartışıldı.
 
-### ⏭ 1. PostGIS migration   ← BURADAYIZ
+### ✅ 1. PostGIS migration — TAMAMLANDI
 
-**Hedef:** Haversine SQL hesabını PostGIS'in `ST_DWithin` + GiST index'iyle değiştir.
+- Image: `postgis/postgis:16-3.4` (volume korundu, veri kaybı YOK;
+  yedek: `backups/gtfs_backup_pre_postgis.dump`)
+- `Stop.geom geography(Point,4326)` + GiST index + parser otomatik doldurma
+- `before_create` DDL listener → CREATE EXTENSION her create_all öncesi
+- `/stops/nearby` → ST_DWithin + ST_Distance (metre, spheroid)
+- `scripts/migrate_postgis.sql` idempotent migration
+- 64 pytest + 32 Newman yeşil
+- Not: Apple Silicon'da amd64 emülasyonu (~44ms); CI/prod native
 
-**Etkilenen yerler:**
-- `docker-compose.yml`: `postgres:16` → `postgis/postgis:16-3.4`
-- `app/models/gtfs.py`: `Stop` modeline `geom Column(Geometry("POINT", 4326))`
-- `app/routers/query_router.py`: `get_stops_nearby` — Haversine kaldır, ST_DWithin kullan
-- Migration script: mevcut lat/lon'dan `geom = ST_SetSRID(ST_MakePoint(lon, lat), 4326)`
-- `requirements.txt`: `geoalchemy2` eklenir
-- `scripts/create_indexes.sql`: GiST index'i eklenir
-
-**Adımlar:**
-1. Docker volume sil + yeniden import (veri kaybı kabul)
-2. Model + dependency güncelle
-3. Migration SQL ile geom doldur
-4. nearby endpoint'i ST_DWithin ile yeniden yaz
-5. Tests doğrula (yarıçap içinde olma şartı aynı)
-6. Performans karşılaştırması: önce/sonra EXPLAIN ANALYZE
-
-**Süre:** ~1.5-2 saat. **Risk:** Orta (Docker imaj değişikliği).
-
-### 2. GTFS-Realtime
-
-PostGIS sonra çünkü `VehiclePosition` modeli baştan `geom` ile gelsin.
+### ⏭ 2. GTFS-Realtime   ← SIRADAKI
 
 **Plan:**
 - Yeni model `VehiclePosition(trip_id, lat, lon, geom, timestamp)`

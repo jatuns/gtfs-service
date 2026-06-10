@@ -2,7 +2,11 @@ version: "3.9"
 
 services:
   db:
-    image: postgres:16
+    # postgis/postgis = postgres:16 + PostGIS extension'ları kurulu.
+    # Aynı PG sürümü (16) olduğu için mevcut pgdata volume'u uyumlu —
+    # veri kaybı olmadan image değiştirilebilir. Extension'ı aktive
+    # etmek için ayrıca: CREATE EXTENSION IF NOT EXISTS postgis;
+    image: postgis/postgis:16-3.4
     container_name: gtfs_postgres
     environment:
       POSTGRES_USER: gtfs_user

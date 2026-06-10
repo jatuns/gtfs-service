@@ -5,3 +5,4 @@ psycopg[binary]==3.3.4
 python-dotenv==1.0.1
 pandas==2.2.3
 python-multipart==0.0.12   # dosya upload için
+geoalchemy2==0.15.2        # PostGIS kolonları (Geography) için SQLAlchemy desteği

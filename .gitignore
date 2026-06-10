@@ -3,3 +3,6 @@ venv/
 __pycache__/
 *.pyc
 .DS_Store
+backups/
+newman-report.json
+uvicorn.log

@@ -231,6 +231,27 @@ GTFS mikroservis temel hâli production-ready:
 - Composite index'ler ile sub-ms sorgular
 - Leaflet ile interaktif harita demo
 
+### Adım 18 — PostGIS Migration ✅
+- Docker image: `postgres:16` → `postgis/postgis:16-3.4`
+  - Aynı PG sürümü → pgdata volume korundu, **veri kaybı yok** (1.4M satır yerinde)
+  - Önlem: `backups/gtfs_backup_pre_postgis.dump` (pg_dump, 23MB)
+  - Collation mismatch düzeltildi (REINDEX + REFRESH COLLATION VERSION)
+- `Stop.geom` → `geography(Point, 4326)` kolonu (GeoAlchemy2)
+  - **Geography** seçildi (Geometry değil): ST_DWithin doğrudan **metre**
+    cinsinden çalışır ve GiST index'i cast'siz kullanır
+- `models/gtfs.py`: `before_create` DDL listener — `create_all` nerede
+  çağrılırsa çağrılsın önce `CREATE EXTENSION postgis` koşar (CI dahil)
+- `gtfs_parser._import_stops`: insert sonrası UPDATE ile geom doldurur
+  (yeni import'lar otomatik geom'lu)
+- `/stops/nearby`: 25 satır Haversine matematiği → 2 PostGIS çağrısı
+  (`ST_DWithin` + `ST_Distance`), spheroid hesabı küre yaklaşımından doğru
+- `scripts/migrate_postgis.sql`: mevcut DB için idempotent migration
+- EXPLAIN ANALYZE: `Bitmap Index Scan on idx_stops_geom` — 9.235 satır
+  yerine bounding-box ile 47 aday satır
+- CI image de güncellendi; 64 pytest + 32 Newman yeşil
+- Not: `postgis/postgis` amd64-only → Apple Silicon'da emülasyonla koşar
+  (dev için yeterli; CI ve prod amd64'te native)
+
 ### Adım 17 — Newman CI (Postman API kontratı CI'da) ✅
 - Postman koleksiyonu artık CI'da **Newman** ile otomatik koşar
 - Akış (her push'ta):

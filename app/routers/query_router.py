@@ -23,7 +23,8 @@ from datetime import date as date_cls, datetime
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, literal, or_
+from geoalchemy2 import Geography
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -642,7 +643,7 @@ def get_stop_next_arrivals(
 @router.get(
     "/stops/nearby",
     response_model=StopsNearbyResponse,
-    summary="Koordinata yakın duraklar (Haversine)",
+    summary="Koordinata yakın duraklar (PostGIS ST_DWithin)",
     responses={
         422: {"description": "Geçersiz lat/lon/radius_m değeri"},
     },
@@ -662,68 +663,37 @@ def get_stops_nearby(
     Verilen (lat, lon) noktasına `radius_m` metreden yakın durakları,
     en yakından uzağa sıralı olarak döndürür.
 
-    Mesafe Haversine formülü ile hesaplanır (Dünya = yaklaşık küre).
-    Hesabı Python'da değil DB'de yapıyoruz: PostgreSQL satır taraması
-    sırasında mesafeyi zaten hesaplıyor, bir kez ek matematikle filtreyi
-    de aynı pass'te bitiriyor — 9k duraklık aktif snapshot için anlık.
+    PostGIS sürümü (eskiden Haversine SQL'di):
+      - Stop.geom → geography(Point, 4326), GiST index'li
+      - ST_DWithin(geom, nokta, metre) → index'le aday kümeyi daraltır;
+        tüm tabloyu taramaz, sadece bounding-box içindekilere bakar
+      - ST_Distance(geom, nokta) → metre cinsinden gerçek geodesic mesafe
+        (Haversine'ın küre yaklaşımından daha doğru — spheroid hesabı)
 
-    Formül (R = Dünya yarıçapı, metre):
-        a = sin²(Δφ/2) + cos(φ1) · cos(φ2) · sin²(Δλ/2)
-        d = 2 · R · asin(√a)
-
-    SQLAlchemy notu: hesaplanan distance_m'i hem ORDER BY hem WHERE'de
-    kullanmak için iki yol var:
-      1) Aynı uzun ifadeyi iki yere de yazmak (DRY ihlali)
-      2) Subquery ile sarmak (önce hesapla, sonra dışta filtrele/sırala)
-    İkincisini seçtik — okuması da PostgreSQL'in optimize etmesi de daha kolay.
-
-    İleride performans: PostGIS + ST_DWithin/GiST index çok daha hızlı
-    olur. 9k satır için şu an gereksiz.
+    ST_MakePoint(x, y) sırası: x=BOYLAM, y=ENLEM. Klasik tuzak.
     """
     snap = _get_active_snapshot(db, tenant_id)
 
-    R = 6_371_000  # Dünya yarıçapı, metre
+    # Sorgu noktası — geography tipine cast ediyoruz ki ST_DWithin
+    # metre cinsinden çalışsın ve GiST index'i kullanabilsin.
+    point = func.ST_SetSRID(
+        func.ST_MakePoint(lon, lat), 4326
+    ).cast(Geography)
 
-    # Sorgu noktası — float değerleri SQL ifadesine sabit olarak gömüyoruz
-    lat_rad = func.radians(literal(lat))
-    lon_rad = func.radians(literal(lon))
+    distance_m_expr = func.ST_Distance(Stop.geom, point).label("distance_m")
 
-    # Durak koordinatları (her satır için)
-    stop_lat_rad = func.radians(Stop.stop_lat)
-    stop_lon_rad = func.radians(Stop.stop_lon)
-
-    dlat = stop_lat_rad - lat_rad
-    dlon = stop_lon_rad - lon_rad
-
-    a = (
-        func.sin(dlat / 2) * func.sin(dlat / 2)
-        + func.cos(lat_rad)
-        * func.cos(stop_lat_rad)
-        * func.sin(dlon / 2)
-        * func.sin(dlon / 2)
-    )
-    distance_m_expr = 2 * R * func.asin(func.sqrt(a))
-
-    # 1. İç sorgu: snapshot ve koordinat NULL filtresi + distance_m sütunu
-    inner = (
+    rows = (
         db.query(
-            Stop.stop_id.label("stop_id"),
-            Stop.stop_name.label("stop_name"),
-            Stop.stop_lat.label("stop_lat"),
-            Stop.stop_lon.label("stop_lon"),
-            distance_m_expr.label("distance_m"),
+            Stop.stop_id,
+            Stop.stop_name,
+            Stop.stop_lat,
+            Stop.stop_lon,
+            distance_m_expr,
         )
         .filter(Stop.snapshot_id == snap.id)
-        .filter(Stop.stop_lat.isnot(None))
-        .filter(Stop.stop_lon.isnot(None))
-        .subquery()
-    )
-
-    # 2. Dış sorgu: yarıçap filtresi + sıralama + limit
-    rows = (
-        db.query(inner)
-        .filter(inner.c.distance_m <= radius_m)
-        .order_by(inner.c.distance_m.asc())
+        .filter(Stop.geom.isnot(None))
+        .filter(func.ST_DWithin(Stop.geom, point, radius_m))
+        .order_by(distance_m_expr.asc())
         .limit(limit)
         .all()
     )
